@@ -4,7 +4,6 @@ use crate::registers::Registers;
 use serde::Deserialize;
 
 
-
 #[derive(Debug, Deserialize)]
 struct CpuState {
     #[serde(flatten)]

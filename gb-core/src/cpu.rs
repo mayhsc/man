@@ -13,5 +13,15 @@ impl<B: Bus> Cpu<B> {
         }
     }
 
-    pub fn step(&self) {}
+    pub fn step(&mut self) {
+        let op = self.regs.pc;
+        let bytes_consumed = self.execute(op);
+        self.regs.increment(bytes_consumed);
+    }
+
+    fn execute(&self, op: u16) -> u16 {
+        match op {
+            _ => 0,
+        }
+    }
 }
