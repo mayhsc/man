@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct CpuState {
+    #[serde(flatten)]
     regs: Registers,
     ram: Vec<(u16, u8)>,
 }
@@ -45,8 +46,8 @@ fn assert_state<B: Bus>(cpu: &Cpu<B>, expected: &CpuState, name: &str) {
     }
 }
 
-pub fn load(name: &str) -> Vec<TestCase> {
-    let path = format!("{}/tests/data/sm83/{name}.json", env!("CARGO_MANIFEST_DIR"));
+fn load(name: &str) -> Vec<TestCase> {
+    let path = format!("{}/tests/sm83/{name}.json", env!("CARGO_MANIFEST_DIR"));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
