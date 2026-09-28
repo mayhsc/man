@@ -1,5 +1,8 @@
+mod bus;
 mod cpu;
-pub mod bus;
-pub mod registers;
+mod registers;
+
+#[cfg(test)]
+mod tests;
 
 use cpu::Cpu;

@@ -1,15 +1,17 @@
 use crate::{bus::Bus, registers::Registers};
 
 pub struct Cpu<B: Bus> {
-    registers: Registers,
-    bus: B,
+    pub(crate) regs: Registers,
+    pub(crate) bus: B,
 }
 
 impl<B: Bus> Cpu<B> {
     pub fn new(bus: B) -> Self {
         Self {
-            registers: Registers::default(),
+            regs: Registers::default(),
             bus,
         }
     }
+
+    pub fn step(&self) {}
 }

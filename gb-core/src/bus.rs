@@ -3,7 +3,7 @@ pub trait Bus {
     fn write(&mut self, addr: u16, value: u8);
 }
 
-struct FlatBus {
+pub struct FlatBus {
     pub memory: [u8; 0x10000],
 }
 
