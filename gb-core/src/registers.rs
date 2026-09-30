@@ -8,6 +8,7 @@ pub(crate) enum Reg8 {
     E,
     H,
     L,
+    HL,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
@@ -38,6 +39,7 @@ impl Registers {
             Reg8::E => self.e,
             Reg8::H => self.h,
             Reg8::L => self.l,
+            Reg8::HL => todo!(""),
         }
     }
 
@@ -50,6 +52,7 @@ impl Registers {
             Reg8::E => self.e = v,
             Reg8::H => self.h = v,
             Reg8::L => self.l = v,
+            Reg8::HL => todo!(""),
         };
     }
 }
