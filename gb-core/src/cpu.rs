@@ -41,13 +41,21 @@ impl<B: Bus> Cpu<B> {
                 let dst = helpers::reg8_from_index((op >> 3) & 0b111);
                 self.load_register(dst, src);
             }
-
+            0x00..=0xFF if (op & 0xC7 == 0x06) => {
+                let dst = helpers::reg8_from_index((op >> 3) & 0b111);
+                let byte = self.fetch_byte();
+                self.set_register(dst, byte);
+            }
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
 
     fn load_register(&mut self, dst: Reg8, src: Reg8) {
         self.regs.set(dst, self.regs.get(src));
+    }
+
+    fn set_register(&mut self, dst: Reg8, val: u8) {
+        self.regs.set(dst, val);
     }
 
     fn halt(&self) {}
