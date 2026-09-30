@@ -57,7 +57,11 @@ fn load(name: &str) -> Vec<TestCase> {
 
 pub fn run_file(name: &str) {
     for tc in load(name) {
-        let opcode: u8 = name.parse::<u8>().unwrap();
+        let opcode: u8 = parse_hex(name);
         run_test(&tc, opcode);
     }
+}
+
+fn parse_hex(s: &str) -> u8 {
+    u8::from_str_radix(s, 16).unwrap()
 }
