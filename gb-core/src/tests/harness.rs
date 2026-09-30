@@ -3,7 +3,6 @@ use crate::cpu::Cpu;
 use crate::registers::Registers;
 use serde::Deserialize;
 
-
 #[derive(Debug, Deserialize)]
 struct CpuState {
     #[serde(flatten)]
@@ -27,21 +26,26 @@ fn bus_from_state(state: &CpuState) -> FlatBus {
     bus
 }
 
-fn run_test(tc: &TestCase) {
+fn run_test(tc: &TestCase, opcode: u8) {
     let bus = bus_from_state(&tc.initial);
     let mut cpu = Cpu::new(bus);
 
-    cpu.regs = tc.initial.regs.clone();  
+    cpu.regs = tc.initial.regs.clone();
+    cpu.set_opcode(opcode);
 
     cpu.step();
 
-    assert_state(&cpu, &tc.expected, &tc.name);  
+    assert_state(&cpu, &tc.expected, &tc.name);
 }
 
 fn assert_state<B: Bus>(cpu: &Cpu<B>, expected: &CpuState, name: &str) {
     assert_eq!(cpu.regs, expected.regs, "{name}: registers differ");
     for &(addr, value) in &expected.ram {
-        assert_eq!(cpu.bus.read(addr), value, "{name}: ram[{addr:#06x}] differs");
+        assert_eq!(
+            cpu.bus.read(addr),
+            value,
+            "{name}: ram[{addr:#06x}] differs"
+        );
     }
 }
 
@@ -53,6 +57,7 @@ fn load(name: &str) -> Vec<TestCase> {
 
 pub fn run_file(name: &str) {
     for tc in load(name) {
-        run_test(&tc);
+        let opcode: u8 = name.parse::<u8>().unwrap();
+        run_test(&tc, opcode);
     }
 }

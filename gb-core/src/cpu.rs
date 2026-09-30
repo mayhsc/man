@@ -33,4 +33,9 @@ impl<B: Bus> Cpu<B> {
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
+
+    #[cfg(test)]
+    pub fn set_opcode(&mut self, op: u8) {
+        self.opcode = op
+    }
 }
