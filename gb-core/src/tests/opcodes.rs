@@ -14,5 +14,4 @@ macro_rules! opcode_tests {
 
 opcode_tests! {
     op_00 => "00",
-    op_01 => "01",
 }

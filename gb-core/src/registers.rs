@@ -15,7 +15,7 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub(crate) fn increment(&mut self, bytes_consumed: u16) {
-        self.pc += bytes_consumed
+    pub(crate) fn increment(&mut self) {
+        self.pc = self.pc.wrapping_add(1)
     }
 }
