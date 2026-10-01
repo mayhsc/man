@@ -8,7 +8,17 @@ pub(crate) enum Reg8 {
     E,
     H,
     L,
-    HL,
+}
+
+pub(crate) enum Dst {
+    Reg(Reg8),
+    Memory,
+}
+
+pub(crate) enum Src {
+    Reg(Reg8),
+    Memory,
+    D8(u8),
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Deserialize)]
@@ -26,10 +36,6 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub(crate) fn increment(&mut self) {
-        self.pc = self.pc.wrapping_add(1)
-    }
-
     pub(crate) fn get(&self, r: Reg8) -> u8 {
         match r {
             Reg8::A => self.a,
@@ -39,7 +45,6 @@ impl Registers {
             Reg8::E => self.e,
             Reg8::H => self.h,
             Reg8::L => self.l,
-            Reg8::HL => todo!(""),
         }
     }
 
@@ -52,7 +57,14 @@ impl Registers {
             Reg8::E => self.e = v,
             Reg8::H => self.h = v,
             Reg8::L => self.l = v,
-            Reg8::HL => todo!(""),
         };
+    }
+
+    pub(crate) fn increment(&mut self) {
+        self.pc = self.pc.wrapping_add(1)
+    }
+
+    pub(crate) fn hl(&self) -> u16 {
+        (self.h as u16) << 8 | (self.l as u16)
     }
 }

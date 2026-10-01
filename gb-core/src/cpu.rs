@@ -1,7 +1,7 @@
 use crate::{
     bus::Bus,
     helpers,
-    registers::{Reg8, Registers},
+    registers::{self, Dst, Reg8, Registers, Src},
 };
 
 pub struct Cpu<B: Bus> {
@@ -37,25 +37,30 @@ impl<B: Bus> Cpu<B> {
             // LD A
             0x76 => self.halt(),
             0x40..=0x7f => {
-                let src = helpers::reg8_from_index(op & 0b111);
-                let dst = helpers::reg8_from_index((op >> 3) & 0b111);
-                self.load_register(dst, src);
+                let src = helpers::src_from_index(op & 0b111);
+                let dst = helpers::dst_from_index((op >> 3) & 0b111);
+                self.ld(dst, src);
             }
-            0x00..=0xFF if (op & 0xC7 == 0x06) => {
-                let dst = helpers::reg8_from_index((op >> 3) & 0b111);
+            0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E => {
+                let dst = helpers::dst_from_index((op >> 3) & 0b111);
                 let byte = self.fetch_byte();
-                self.set_register(dst, byte);
+                self.ld(dst, Src::D8(byte));
             }
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
 
-    fn load_register(&mut self, dst: Reg8, src: Reg8) {
-        self.regs.set(dst, self.regs.get(src));
-    }
+    fn ld(&mut self, dst: Dst, src: Src) {
+        let v = match src {
+            Src::Reg(r) => self.regs.get(r),
+            Src::Memory => self.bus.read(self.regs.hl()),
+            Src::D8(v) => v,
+        };
 
-    fn set_register(&mut self, dst: Reg8, val: u8) {
-        self.regs.set(dst, val);
+        match dst {
+            Dst::Reg(r) => self.regs.set(r, v),
+            Dst::Memory => self.bus.write(self.regs.hl(), v),
+        };
     }
 
     fn halt(&self) {}
