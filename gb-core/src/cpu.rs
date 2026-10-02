@@ -1,7 +1,7 @@
 use crate::{
     bus::Bus,
     helpers,
-    registers::{self, Dst, Reg8, Registers, Src},
+    registers::{Dst, Registers, Src},
 };
 
 pub struct Cpu<B: Bus> {
@@ -34,8 +34,9 @@ impl<B: Bus> Cpu<B> {
         match op {
             // NOP
             0x00 => {}
-            // LD A
+            // HLT
             0x76 => self.halt(),
+            // LD
             0x40..=0x7f => {
                 let src = helpers::src_from_index(op & 0b111);
                 let dst = helpers::dst_from_index((op >> 3) & 0b111);
