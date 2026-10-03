@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::flags::Flags;
+use crate::flags::{Condition, Flags};
 
 pub(crate) enum Reg8 {
     A,
@@ -116,6 +116,16 @@ impl Registers {
         }
     }
 
+    fn get_condition(&self, c: Condition) -> bool {
+        match c {
+            Condition::NZ => !self.f.z(),
+            Condition::Z => self.f.z(),
+            Condition::NC => !self.f.c(),
+            Condition::C => self.f.c(),
+
+        }
+    }
+
     pub(crate) fn increment(&mut self) {
         self.pc = self.pc.wrapping_add(1)
     }
@@ -222,7 +232,6 @@ impl Registers {
         self.f.set_c(b1);
     }
 
-
     pub(crate) fn rlca(&mut self) {
         let carry = self.a & 0x80 != 0;
 
@@ -322,4 +331,7 @@ impl Registers {
         self.f.set_c(carry);
     }
 
+    pub(crate) fn jr(&mut self, offset: i8, c: Condition) {
+        if self.get_condition(c) {self.pc = self.pc.wrapping_add_signed(offset as i16);}
+    }
 }

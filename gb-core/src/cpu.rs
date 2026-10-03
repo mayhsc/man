@@ -156,7 +156,15 @@ impl<B: Bus> Cpu<B> {
             0x2F => self.regs.cpl(),
             0x37 => self.regs.scf(),
             0x3F => self.regs.ccf(),
-
+            0x18 => {
+                let offset = self.fetch_byte() as i8;
+                self.regs.pc = self.regs.pc.wrapping_add_signed(offset as i16);
+            }
+            op if (op & 0b11100111 == 0b00100000) => {
+                let offset = self.fetch_byte() as i8;
+                let c = helpers::cond_from_index((op >> 3) & 0b11);
+                self.regs.jr(offset, c);
+            }
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
