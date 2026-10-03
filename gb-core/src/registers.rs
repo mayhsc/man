@@ -10,12 +10,7 @@ pub(crate) enum Reg8 {
     L,
 }
 
-pub(crate) enum Dst {
-    Reg(Reg8),
-    Memory,
-}
-
-pub(crate) enum Src {
+pub(crate) enum Operand8 {
     Reg(Reg8),
     Memory,
     D8(u8),
