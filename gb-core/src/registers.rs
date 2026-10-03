@@ -116,7 +116,7 @@ impl Registers {
         }
     }
 
-    fn get_condition(&self, c: Condition) -> bool {
+    pub(crate) fn get_condition(&self, c: Condition) -> bool {
         match c {
             Condition::NZ => !self.f.z(),
             Condition::Z => self.f.z(),
@@ -140,6 +140,12 @@ impl Registers {
 
     pub(crate) fn hl(&self) -> u16 {
         (self.h as u16) << 8 | (self.l as u16)
+    }
+
+    pub(crate) fn pop(&mut self) -> u16 {
+        let v = self.sp;
+        self.sp += 1;
+        v
     }
 
     pub(crate) fn add_a(&mut self, v: u8, carry: bool) {

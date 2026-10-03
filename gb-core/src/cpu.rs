@@ -8,6 +8,7 @@ pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
     pub(crate) bus: B,
     opcode: u8,
+    ime: bool
 }
 
 impl<B: Bus> Cpu<B> {
@@ -16,6 +17,7 @@ impl<B: Bus> Cpu<B> {
             regs: Registers::default(),
             bus,
             opcode: 0,
+            ime: false,
         }
     }
 
@@ -165,6 +167,20 @@ impl<B: Bus> Cpu<B> {
                 let c = helpers::cond_from_index((op >> 3) & 0b11);
                 self.regs.jr(offset, c);
             }
+            op if (op & 0b11100111 == 0b11000000) => {
+                let c = helpers::cond_from_index((op >> 3) & 0b11);
+                if self.regs.get_condition(c) {
+                    self.ret();
+                }
+            }
+            0xC9 => {
+                self.ret();
+            }
+            0xD9 => {
+                self.ret();
+                self.ime = true;
+            }
+
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
@@ -211,6 +227,12 @@ impl<B: Bus> Cpu<B> {
         self.regs.f.set_z(result == 0);
         self.regs.f.set_n(true);
         self.regs.f.set_h(half_carry);
+    }
+
+    pub(crate) fn ret(&mut self) {
+        let lower_byte = self.bus.read(self.regs.pop());
+        let higher_byte = self.bus.read(self.regs.pop());
+        self.regs.pc = ((higher_byte as u16) << 8) | (lower_byte as u16);
     }
 
     fn read_operand8_index(&mut self, idx: u8) -> u8 {
