@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::flags::Flags;
+
 pub(crate) enum Reg8 {
     A,
     B,
@@ -30,7 +32,7 @@ pub struct Registers {
     pub c: u8,
     pub d: u8,
     pub e: u8,
-    pub f: u8,
+    pub f: Flags,
     pub h: u8,
     pub l: u8,
     pub sp: u16,
@@ -106,7 +108,7 @@ impl Registers {
     }
 
     pub(crate) fn add_a(&mut self, value: u8, carry: bool) {
-        let carry_in = if carry && self.flag_c() { 1 } else { 0 };
+        let carry_in = if carry && self.f.c() { 1 } else { 0 };
         let a = self.a;
 
         let (r1, c1) = a.overflowing_add(value);
@@ -116,28 +118,9 @@ impl Registers {
         let half_carry = (a & 0xF) + (value & 0xF) + carry_in > 0xF;
 
         self.a = result;
-        self.set_zf(result == 0);
-        self.set_nf(false);
-        self.set_hf(half_carry);
-        self.set_cf(carry);
-    }
-
-    fn flag_c(&self) -> bool {
-        (self.f >> 4 & 1) == 1
-    }
-
-    fn set_zf(&mut self, f: bool) {
-        self.f = self.f & !(1 << 7) | ((f as u8) << 7);
-    }
-
-    fn set_nf(&mut self, f: bool) {
-        self.f = self.f & !(1 << 6) | ((f as u8) << 6);
-    }
-
-    fn set_hf(&mut self, f: bool) {
-        self.f = self.f & !(1 << 5) | ((f as u8) << 5);
-    }
-    fn set_cf(&mut self, f: bool) {
-        self.f = self.f & !(1 << 4) | ((f as u8) << 4);
+        self.f.set_z(result == 0);
+        self.f.set_n(false);
+        self.f.set_h(half_carry);
+        self.f.set_c(carry);
     }
 }

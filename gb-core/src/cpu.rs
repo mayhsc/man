@@ -65,7 +65,7 @@ impl<B: Bus> Cpu<B> {
                     Operand8::D8(v) => v,
                 };
                 let carry = ((op >> 3) & 0b1) == 1;
-                print!("Carry: {carry}"); self.regs.add_a(v, carry);
+                self.regs.add_a(v, carry);
             }
             0xC6 | 0xcE => {
                 let byte = self.fetch_byte();
