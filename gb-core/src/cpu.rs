@@ -57,7 +57,7 @@ impl<B: Bus> Cpu<B> {
                 let v = self.bus.read(addr);
                 self.regs.set8(crate::registers::Reg8::A, v);
             }
-            0x80..=0x8F => {
+            0x80..=0x9F => {
                 let src = helpers::operand8_from_index(op & 0b111);
                 let v = match src {
                     Operand8::Reg(r) => self.regs.get8(r),
@@ -65,12 +65,24 @@ impl<B: Bus> Cpu<B> {
                     Operand8::D8(v) => v,
                 };
                 let carry = ((op >> 3) & 0b1) == 1;
-                self.regs.add_a(v, carry);
+                let sub = ((op >> 4) & 0b1) == 1;
+
+                if sub {
+                    self.regs.sub_a(v, carry);
+                } else {
+                    self.regs.add_a(v, carry);
+                }
             }
-            0xC6 | 0xcE => {
+            0xC6 | 0xCE | 0xD6 | 0xDE => {
                 let byte = self.fetch_byte();
                 let carry = ((op >> 3) & 0b1) == 1;
-                self.regs.add_a(byte, carry);
+                let sub = ((op >> 4) & 0b1) == 1;
+
+                if sub {
+                    self.regs.sub_a(byte, carry);
+                } else {
+                    self.regs.add_a(byte, carry);
+                }
             }
 
             _ => panic!("Instruction has not been implemented yet"),

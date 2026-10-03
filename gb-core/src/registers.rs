@@ -123,4 +123,21 @@ impl Registers {
         self.f.set_h(half_carry);
         self.f.set_c(carry);
     }
+
+    pub(crate) fn sub_a(&mut self, value: u8, use_carry: bool) {
+        let carry_in = if use_carry && self.f.c() { 1 } else { 0 };
+        let a = self.a;
+
+        let (r1, b1) = a.overflowing_sub(value);
+        let (result, b2) = r1.overflowing_sub(carry_in);
+        let borrow = b1 || b2;
+
+        let half_borrow = (a & 0xF) < (value & 0xF) + carry_in;
+
+        self.a = result;
+        self.f.set_z(result == 0);
+        self.f.set_n(true);
+        self.f.set_h(half_borrow);
+        self.f.set_c(borrow);
+    }
 }
