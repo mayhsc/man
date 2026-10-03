@@ -258,4 +258,10 @@ opcode_tests! {
     op_c3 => "C3",
     op_e9 => "E9",
 
+    op_c4 => "C4",
+    op_cc => "CC",
+    op_d4 => "D4",
+    op_dc => "DC",
+    op_cd => "CD",
+
 }

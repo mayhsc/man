@@ -142,11 +142,6 @@ impl Registers {
         (self.h as u16) << 8 | (self.l as u16)
     }
 
-    pub(crate) fn pop(&mut self) -> u16 {
-        let v = self.sp;
-        self.sp += 1;
-        v
-    }
 
     pub(crate) fn add_a(&mut self, v: u8, carry: bool) {
         let carry_in = if carry && self.f.c() { 1 } else { 0 };

@@ -193,9 +193,31 @@ impl<B: Bus> Cpu<B> {
                 self.jmp(None);
             }
             0xE9 => self.regs.pc = self.regs.hl(),
+            op if (op & 0b11100111 == 0b11000100) => {
+                let c = helpers::cond_from_index((op >> 3) & 0b11);
 
+                self.call(Some(c));
+            }
+            0xCD => self.call(None),
             _ => panic!("Instruction has not been implemented yet"),
         };
+    }
+
+    fn pop(&mut self) -> u16 {
+        let lo = self.bus.read(self.regs.sp) as u16;
+        self.regs.sp = self.regs.sp.wrapping_add(1);
+        let hi = self.bus.read(self.regs.sp) as u16;
+        self.regs.sp = self.regs.sp.wrapping_add(1);
+        (hi << 8) | lo
+    }
+
+    fn push(&mut self, value: u16) {
+        let hi = (value >> 8) as u8;
+        let lo = (value & 0xFF) as u8;
+        self.regs.sp = self.regs.sp.wrapping_sub(1);
+        self.bus.write(self.regs.sp, hi);
+        self.regs.sp = self.regs.sp.wrapping_sub(1);
+        self.bus.write(self.regs.sp, lo);
     }
 
     fn ld(&mut self, dst: Operand8, src: Operand8) {
@@ -243,15 +265,22 @@ impl<B: Bus> Cpu<B> {
     }
 
     fn ret(&mut self) {
-        let lower_byte = self.bus.read(self.regs.pop());
-        let higher_byte = self.bus.read(self.regs.pop());
-        self.regs.pc = ((higher_byte as u16) << 8) | (lower_byte as u16);
+        self.regs.pc = self.pop();
     }
 
     fn jmp(&mut self, condition: Option<Condition>) {
         let addr = self.fetch_byte16();
 
         if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
+            self.regs.pc = addr;
+        }
+    }
+
+    fn call(&mut self, condition: Option<Condition>) {
+        let addr = self.fetch_byte16();
+
+        if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
+            self.push(self.regs.pc);
             self.regs.pc = addr;
         }
     }
