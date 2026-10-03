@@ -91,7 +91,11 @@ impl<B: Bus> Cpu<B> {
                 let v = self.read_operand8_index(op & 0b111);
                 self.regs.or(v);
             }
-            0xE6 | 0xEE | 0xf6 => {
+            0xB8..=0xBF => {
+                let v = self.read_operand8_index(op & 0b111);
+                self.regs.cp(v);
+            }
+            0xE6 | 0xEE | 0xf6 | 0xfe => {
                 let v = self.fetch_byte();
                 let a = (op >> 3) & 0b00000111;
                 if a == 0b100 {
@@ -100,6 +104,8 @@ impl<B: Bus> Cpu<B> {
                     self.regs.xor(v);
                 } else if a == 0b110 {
                     self.regs.or(v);
+                } else {
+                    self.regs.cp(v);
                 }
             }
             _ => panic!("Instruction has not been implemented yet"),

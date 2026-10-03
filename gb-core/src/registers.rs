@@ -160,6 +160,7 @@ impl Registers {
         self.f.set_h(false);
         self.f.set_c(false);
     }
+
     pub(crate) fn xor(&mut self, v: u8) {
         let result = self.a ^ v;
         self.a = result;
@@ -169,4 +170,16 @@ impl Registers {
         self.f.set_h(false);
         self.f.set_c(false);
     }
+
+    pub(crate) fn cp(&mut self, v: u8) {
+        let a = self.a;
+
+        let (r1, b1) = a.overflowing_sub(v);
+
+        
+        let half_borrow = (a & 0xF) < (v & 0xF);
+        self.f.set_z(r1 == 0);
+        self.f.set_n(true);
+        self.f.set_h(half_borrow);
+        self.f.set_c(b1);    }
 }

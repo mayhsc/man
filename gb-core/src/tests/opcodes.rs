@@ -167,10 +167,21 @@ opcode_tests! {
     op_b6 => "B6",
     op_b7 => "B7",
 
+    op_b8 => "B8",
+    op_b9 => "B9",
+    op_ba => "BA",
+    op_bb => "BB",
+    op_bc => "BC",
+    op_bd => "BD",
+    op_be => "BE",
+    op_bf => "BF",
+
     op_e6 => "E6",
 
     op_ee => "EE",
 
     op_f6 => "F6",
+
+    op_fe => "FE",
 
 }
