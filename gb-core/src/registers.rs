@@ -69,7 +69,7 @@ impl Registers {
             Reg16::BC => self.bc(),
             Reg16::DE => self.de(),
             Reg16::HL => self.hl(),
-            Reg16::SP => todo!(),
+            Reg16::SP => self.sp,
         }
     }
 
@@ -87,7 +87,7 @@ impl Registers {
                 self.h = (v >> 8) as u8;
                 self.l = (v) as u8;
             }
-            Reg16::SP => todo!(),
+            Reg16::SP => self.sp = v,
         };
     }
 
