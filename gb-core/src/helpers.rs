@@ -11,7 +11,7 @@ pub fn operand8_from_index(idx: u8) -> Operand8 {
         3 => Operand8::Reg(Reg8::E),
         4 => Operand8::Reg(Reg8::H),
         5 => Operand8::Reg(Reg8::L),
-        6 => Operand8::Memory,
+        6 => Operand8::MemHL,
         7 => Operand8::Reg(Reg8::A),
         _ => unreachable!(),
     }

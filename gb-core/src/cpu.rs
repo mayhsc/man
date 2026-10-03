@@ -57,6 +57,21 @@ impl<B: Bus> Cpu<B> {
                 let v = self.bus.read(addr);
                 self.regs.set8(crate::registers::Reg8::A, v);
             }
+            0x80..=0x8F => {
+                let src = helpers::operand8_from_index(op & 0b111);
+                let v = match src {
+                    Operand8::Reg(r) => self.regs.get8(r),
+                    Operand8::MemHL => self.bus.read(self.regs.hl()),
+                    Operand8::D8(v) => v,
+                };
+                let carry = ((op >> 3) & 0b1) == 1;
+                print!("Carry: {carry}"); self.regs.add_a(v, carry);
+            }
+            0xC6 | 0xcE => {
+                let byte = self.fetch_byte();
+                let carry = ((op >> 3) & 0b1) == 1;
+                self.regs.add_a(byte, carry);
+            }
 
             _ => panic!("Instruction has not been implemented yet"),
         };
@@ -65,13 +80,13 @@ impl<B: Bus> Cpu<B> {
     fn ld(&mut self, dst: Operand8, src: Operand8) {
         let v = match src {
             Operand8::Reg(r) => self.regs.get8(r),
-            Operand8::Memory => self.bus.read(self.regs.hl()),
+            Operand8::MemHL => self.bus.read(self.regs.hl()),
             Operand8::D8(v) => v,
         };
 
         match dst {
             Operand8::Reg(r) => self.regs.set8(r, v),
-            Operand8::Memory => self.bus.write(self.regs.hl(), v),
+            Operand8::MemHL => self.bus.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!(),
         };
     }
