@@ -148,6 +148,14 @@ impl<B: Bus> Cpu<B> {
                 let v = self.read_operand8_index((op >> 3) & 0b111);
                 self.dec(dst, v);
             }
+            0x07 => self.regs.rlca(),
+            0x0F => self.regs.rrca(),
+            0x17 => self.regs.rla(),
+            0x1F => self.regs.rra(),
+            0x27 => self.regs.daa(),
+            0x2F => self.regs.cpl(),
+            0x37 => self.regs.scf(),
+            0x3F => self.regs.ccf(),
 
             _ => panic!("Instruction has not been implemented yet"),
         };

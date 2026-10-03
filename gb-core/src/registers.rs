@@ -221,4 +221,105 @@ impl Registers {
         self.f.set_h(half_borrow);
         self.f.set_c(b1);
     }
+
+
+    pub(crate) fn rlca(&mut self) {
+        let carry = self.a & 0x80 != 0;
+
+        self.a = self.a.rotate_left(1);
+
+        self.f.set_z(false);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(carry);
+    }
+
+    pub(crate) fn rrca(&mut self) {
+        let carry = self.a & 0x01 != 0;
+
+        self.a = self.a.rotate_right(1);
+
+        self.f.set_z(false);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(carry);
+    }
+
+    pub(crate) fn rla(&mut self) {
+        let old_carry = self.f.c();
+        let new_carry = self.a & 0x80 != 0;
+
+        self.a = (self.a << 1) | old_carry as u8;
+
+        self.f.set_z(false);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(new_carry);
+    }
+
+    pub(crate) fn rra(&mut self) {
+        let old_carry = self.f.c();
+        let new_carry = self.a & 0x01 != 0;
+
+        self.a = (self.a >> 1) | ((old_carry as u8) << 7);
+
+        self.f.set_z(false);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(new_carry);
+    }
+
+    pub(crate) fn cpl(&mut self) {
+        self.a = !self.a;
+
+        self.f.set_n(true);
+        self.f.set_h(true);
+    }
+
+    pub(crate) fn scf(&mut self) {
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(true);
+    }
+
+    pub(crate) fn ccf(&mut self) {
+        let carry = self.f.c();
+
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(!carry);
+    }
+
+    pub(crate) fn daa(&mut self) {
+        let mut correction = 0;
+        let mut carry = self.f.c();
+
+        if self.f.n() {
+            if self.f.h() {
+                correction |= 0x06;
+            }
+
+            if carry {
+                correction |= 0x60;
+            }
+
+            self.a = self.a.wrapping_sub(correction);
+        } else {
+            if self.f.h() || (self.a & 0x0F) > 9 {
+                correction |= 0x06;
+            }
+
+            if carry || self.a > 0x99 {
+                correction |= 0x60;
+                carry = true;
+            }
+
+            self.a = self.a.wrapping_add(correction);
+        }
+
+        self.f.set_z(self.a == 0);
+        self.f.set_h(false);
+        self.f.set_c(carry);
+    }
+
 }
