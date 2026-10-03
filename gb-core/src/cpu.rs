@@ -138,6 +138,16 @@ impl<B: Bus> Cpu<B> {
                 let v = self.regs.get16(&r);
                 self.regs.add_hl(v);
             }
+            op if (op & 0b11000111 == 0b00000100) => {
+                let dst = helpers::operand8_from_index((op >> 3) & 0b111);
+                let v = self.read_operand8_index((op >> 3) & 0b111);
+                self.inc(dst, v);
+            }
+            op if (op & 0b11000111 == 0b00000101) => {
+                let dst = helpers::operand8_from_index((op >> 3) & 0b111);
+                let v = self.read_operand8_index((op >> 3) & 0b111);
+                self.dec(dst, v);
+            }
 
             _ => panic!("Instruction has not been implemented yet"),
         };
@@ -155,6 +165,36 @@ impl<B: Bus> Cpu<B> {
             Operand8::MemHL => self.bus.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!(),
         };
+    }
+
+    fn inc(&mut self, dst: Operand8, v: u8) {
+        let (result, _) = v.overflowing_add(1);
+        let half_carry = (v & 0xF) + (1 & 0xF) > 0xF;
+
+        match dst {
+            Operand8::Reg(r) => self.regs.set8(r, result),
+            Operand8::MemHL => self.bus.write(self.regs.hl(), result),
+            Operand8::D8(_) => panic!(),
+        }
+
+        self.regs.f.set_z(result == 0);
+        self.regs.f.set_n(false);
+        self.regs.f.set_h(half_carry);
+    }
+
+    fn dec(&mut self, dst: Operand8, v: u8) {
+        let (result, _) = v.overflowing_sub(1);
+        let half_carry = (v & 0xF) < (1 & 0xF);
+
+        match dst {
+            Operand8::Reg(r) => self.regs.set8(r, result),
+            Operand8::MemHL => self.bus.write(self.regs.hl(), result),
+            Operand8::D8(_) => panic!(),
+        }
+
+        self.regs.f.set_z(result == 0);
+        self.regs.f.set_n(true);
+        self.regs.f.set_h(half_carry);
     }
 
     fn read_operand8_index(&mut self, idx: u8) -> u8 {
