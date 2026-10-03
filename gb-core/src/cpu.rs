@@ -49,11 +49,11 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00000010) => {
                 let v = self.regs.a;
-                let addr = self.regs.get16(helpers::reg16_from_index(op >> 4 & 0b11));
+                let addr = self.regs.get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
                 self.bus.write(addr, v);
             }
             op if (op & 0b11001111 == 0b00001010) => {
-                let addr = self.regs.get16(helpers::reg16_from_index(op >> 4 & 0b11));
+                let addr = self.regs.get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
                 let v = self.bus.read(addr);
                 self.regs.set8(crate::registers::Reg8::A, v);
             }
@@ -111,10 +111,6 @@ impl<B: Bus> Cpu<B> {
             op if (op & 0b11001111 == 0b00000001) => {
                 let r16 = helpers::reg16_from_index((op >> 4) & 0b11);
                 let v = (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8);
-                // let b1 = self.fetch_byte() as u16;
-                // let b2 = self.fetch_byte() as u16;
-                // let v = b2 | (b1 >> 8);
-                // print!("B1: {b1} B2: {b2} V: {v}");
                 self.regs.set16(r16, v);
             }
             _ => panic!("Instruction has not been implemented yet"),

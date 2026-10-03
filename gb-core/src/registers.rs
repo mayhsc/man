@@ -19,6 +19,13 @@ pub(crate) enum Reg16 {
     SP,
 }
 
+pub(crate) enum Reg16Mem {
+    BC,
+    DE,
+    HLI,
+    HLD,
+}
+
 pub(crate) enum Operand8 {
     Reg(Reg8),
     MemHL,
@@ -89,6 +96,24 @@ impl Registers {
             }
             Reg16::SP => self.sp = v,
         };
+    }
+
+    /// Also increments/decerements HL register
+    pub(crate) fn get16mem(&mut self, r: Reg16Mem) -> u16 {
+        match r {
+            Reg16Mem::BC => self.bc(),
+            Reg16Mem::DE => self.de(),
+            Reg16Mem::HLI => {
+                let hl = self.hl();
+                self.set16(Reg16::HL, hl.wrapping_add(1));
+                hl
+            }
+            Reg16Mem::HLD => {
+                let hl = self.hl();
+                self.set16(Reg16::HL, hl.wrapping_sub(1));
+                hl
+            }
+        }
     }
 
     pub(crate) fn increment(&mut self) {
@@ -176,10 +201,10 @@ impl Registers {
 
         let (r1, b1) = a.overflowing_sub(v);
 
-        
         let half_borrow = (a & 0xF) < (v & 0xF);
         self.f.set_z(r1 == 0);
         self.f.set_n(true);
         self.f.set_h(half_borrow);
-        self.f.set_c(b1);    }
+        self.f.set_c(b1);
+    }
 }
