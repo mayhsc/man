@@ -1,4 +1,7 @@
-use crate::registers::{Operand8, Reg8};
+use crate::registers::{
+    Operand8, Reg8,
+    Reg16::{self, DE},
+};
 
 pub fn operand8_from_index(idx: u8) -> Operand8 {
     match idx {
@@ -10,6 +13,16 @@ pub fn operand8_from_index(idx: u8) -> Operand8 {
         5 => Operand8::Reg(Reg8::L),
         6 => Operand8::Memory,
         7 => Operand8::Reg(Reg8::A),
+        _ => unreachable!(),
+    }
+}
+
+pub fn reg16_from_index(idx: u8) -> Reg16 {
+    match idx {
+        0 => Reg16::BC,
+        1 => Reg16::DE,
+        2 => Reg16::HL,
+        3 => Reg16::SP,
         _ => unreachable!(),
     }
 }

@@ -10,6 +10,13 @@ pub(crate) enum Reg8 {
     L,
 }
 
+pub(crate) enum Reg16 {
+    BC,
+    DE,
+    HL,
+    SP,
+}
+
 pub(crate) enum Operand8 {
     Reg(Reg8),
     Memory,
@@ -31,7 +38,7 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub(crate) fn get(&self, r: Reg8) -> u8 {
+    pub(crate) fn get8(&self, r: Reg8) -> u8 {
         match r {
             Reg8::A => self.a,
             Reg8::B => self.b,
@@ -43,7 +50,7 @@ impl Registers {
         }
     }
 
-    pub(crate) fn set(&mut self, r: Reg8, v: u8) {
+    pub(crate) fn set8(&mut self, r: Reg8, v: u8) {
         match r {
             Reg8::A => self.a = v,
             Reg8::B => self.b = v,
@@ -52,6 +59,33 @@ impl Registers {
             Reg8::E => self.e = v,
             Reg8::H => self.h = v,
             Reg8::L => self.l = v,
+        };
+    }
+
+    pub(crate) fn get16(&self, r: Reg16) -> u16 {
+        match r {
+            Reg16::BC => self.bc(),
+            Reg16::DE => self.de(),
+            Reg16::HL => self.hl(),
+            Reg16::SP => todo!(),
+        }
+    }
+
+    pub(crate) fn set16(&mut self, r: Reg16, v: u16) {
+        match r {
+            Reg16::BC => {
+                self.b = (v >> 8) as u8;
+                self.c = (v) as u8;
+            }
+            Reg16::DE => {
+                self.d = (v >> 8) as u8;
+                self.e = (v) as u8;
+            }
+            Reg16::HL => {
+                self.h = (v >> 8) as u8;
+                self.l = (v) as u8;
+            }
+            Reg16::SP => todo!(),
         };
     }
 

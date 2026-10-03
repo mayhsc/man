@@ -47,19 +47,30 @@ impl<B: Bus> Cpu<B> {
                 let byte = self.fetch_byte();
                 self.ld(dst, Operand8::D8(byte));
             }
+            op if (op & 0b11001111 == 0b00000010) => {
+                let v = self.regs.a;
+                let addr = self.regs.get16(helpers::reg16_from_index(op >> 4 & 0b11));
+                self.bus.write(addr, v);
+            }
+            op if (op & 0b11001111 == 0b00001010) => {
+                let addr = self.regs.get16(helpers::reg16_from_index(op >> 4 & 0b11));
+                let v = self.bus.read(addr);
+                self.regs.set8(crate::registers::Reg8::A, v);
+            }
+
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
 
     fn ld(&mut self, dst: Operand8, src: Operand8) {
         let v = match src {
-            Operand8::Reg(r) => self.regs.get(r),
+            Operand8::Reg(r) => self.regs.get8(r),
             Operand8::Memory => self.bus.read(self.regs.hl()),
             Operand8::D8(v) => v,
         };
 
         match dst {
-            Operand8::Reg(r) => self.regs.set(r, v),
+            Operand8::Reg(r) => self.regs.set8(r, v),
             Operand8::Memory => self.bus.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!(),
         };
