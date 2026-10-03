@@ -1,5 +1,6 @@
 use crate::{
     bus::Bus,
+    flags::Condition,
     helpers,
     registers::{Operand8, Registers},
 };
@@ -8,7 +9,7 @@ pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
     pub(crate) bus: B,
     opcode: u8,
-    ime: bool
+    ime: bool,
 }
 
 impl<B: Bus> Cpu<B> {
@@ -30,6 +31,10 @@ impl<B: Bus> Cpu<B> {
         let b = self.bus.read(self.regs.pc);
         self.regs.increment();
         b
+    }
+
+    fn fetch_byte16(&mut self) -> u16 {
+        (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8)
     }
 
     fn execute(&mut self, op: u8) {
@@ -116,11 +121,11 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00000001) => {
                 let r16 = helpers::reg16_from_index((op >> 4) & 0b11);
-                let v = (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8);
+                let v = self.fetch_byte16();
                 self.regs.set16(r16, v);
             }
             0x08 => {
-                let addr = (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8);
+                let addr = self.fetch_byte16();
                 let v = self.regs.sp;
                 self.bus.write(addr, v as u8);
                 self.bus.write(addr + 1, (v >> 8) as u8);
@@ -180,6 +185,14 @@ impl<B: Bus> Cpu<B> {
                 self.ret();
                 self.ime = true;
             }
+            op if (op & 0b11100111 == 0b11000010) => {
+                let c = helpers::cond_from_index((op >> 3) & 0b11);
+                self.jmp(Some(c));
+            }
+            0xC3 => {
+                self.jmp(None);
+            }
+            0xE9 => self.regs.pc = self.regs.hl(),
 
             _ => panic!("Instruction has not been implemented yet"),
         };
@@ -229,10 +242,18 @@ impl<B: Bus> Cpu<B> {
         self.regs.f.set_h(half_carry);
     }
 
-    pub(crate) fn ret(&mut self) {
+    fn ret(&mut self) {
         let lower_byte = self.bus.read(self.regs.pop());
         let higher_byte = self.bus.read(self.regs.pop());
         self.regs.pc = ((higher_byte as u16) << 8) | (lower_byte as u16);
+    }
+
+    fn jmp(&mut self, condition: Option<Condition>) {
+        let addr = self.fetch_byte16();
+
+        if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
+            self.regs.pc = addr;
+        }
     }
 
     fn read_operand8_index(&mut self, idx: u8) -> u8 {

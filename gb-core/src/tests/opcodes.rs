@@ -250,4 +250,12 @@ opcode_tests! {
     op_d8 => "D8",
     op_c9 => "C9",
     op_d9 => "D9",
+
+    op_c2 => "C2",
+    op_ca => "CA",
+    op_d2 => "D2",
+    op_da => "DA",
+    op_c3 => "C3",
+    op_e9 => "E9",
+
 }
