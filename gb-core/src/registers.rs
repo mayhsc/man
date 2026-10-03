@@ -140,4 +140,33 @@ impl Registers {
         self.f.set_h(half_borrow);
         self.f.set_c(borrow);
     }
+
+    pub(crate) fn and(&mut self, v: u8) {
+        let result = self.a & v;
+        self.a = result;
+
+        self.f.set_z(result == 0);
+        self.f.set_n(false);
+        self.f.set_h(true);
+        self.f.set_c(false);
+    }
+
+    pub(crate) fn or(&mut self, v: u8) {
+        let result = self.a | v;
+        self.a = result;
+
+        self.f.set_z(result == 0);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(false);
+    }
+    pub(crate) fn xor(&mut self, v: u8) {
+        let result = self.a ^ v;
+        self.a = result;
+
+        self.f.set_z(result == 0);
+        self.f.set_n(false);
+        self.f.set_h(false);
+        self.f.set_c(false);
+    }
 }

@@ -58,12 +58,7 @@ impl<B: Bus> Cpu<B> {
                 self.regs.set8(crate::registers::Reg8::A, v);
             }
             0x80..=0x9F => {
-                let src = helpers::operand8_from_index(op & 0b111);
-                let v = match src {
-                    Operand8::Reg(r) => self.regs.get8(r),
-                    Operand8::MemHL => self.bus.read(self.regs.hl()),
-                    Operand8::D8(v) => v,
-                };
+                let v = self.read_operand8_index(op & 0b111);
                 let carry = ((op >> 3) & 0b1) == 1;
                 let sub = ((op >> 4) & 0b1) == 1;
 
@@ -84,7 +79,29 @@ impl<B: Bus> Cpu<B> {
                     self.regs.add_a(byte, carry);
                 }
             }
-
+            0xA0..=0xA7 => {
+                let v = self.read_operand8_index(op & 0b111);
+                self.regs.and(v);
+            }
+            0xA8..=0xAF => {
+                let v = self.read_operand8_index(op & 0b111);
+                self.regs.xor(v);
+            }
+            0xB0..=0xB7 => {
+                let v = self.read_operand8_index(op & 0b111);
+                self.regs.or(v);
+            }
+            0xE6 | 0xEE | 0xf6 => {
+                let v = self.fetch_byte();
+                let a = (op >> 3) & 0b00000111;
+                if a == 0b100 {
+                    self.regs.and(v);
+                } else if a == 0b101 {
+                    self.regs.xor(v);
+                } else if a == 0b110 {
+                    self.regs.or(v);
+                }
+            }
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
@@ -101,6 +118,14 @@ impl<B: Bus> Cpu<B> {
             Operand8::MemHL => self.bus.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!(),
         };
+    }
+
+    fn read_operand8_index(&mut self, idx: u8) -> u8 {
+        match helpers::operand8_from_index(idx) {
+            Operand8::Reg(r) => self.regs.get8(r),
+            Operand8::MemHL => self.bus.read(self.regs.hl()),
+            Operand8::D8(v) => v,
+        }
     }
 
     fn halt(&self) {}

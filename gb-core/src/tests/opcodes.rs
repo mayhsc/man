@@ -139,4 +139,38 @@ opcode_tests! {
 
     op_d6 => "D6",
     op_de => "DE",
+
+    op_a0 => "A0",
+    op_a1 => "A1",
+    op_a2 => "A2",
+    op_a3 => "A3",
+    op_a4 => "A4",
+    op_a5 => "A5",
+    op_a6 => "A6",
+    op_a7 => "A7",
+
+    op_a8 => "A8",
+    op_a9 => "A9",
+    op_aa => "AA",
+    op_ab => "AB",
+    op_ac => "AC",
+    op_ad => "AD",
+    op_ae => "AE",
+    op_af => "AF",
+
+    op_b0 => "B0",
+    op_b1 => "B1",
+    op_b2 => "B2",
+    op_b3 => "B3",
+    op_b4 => "B4",
+    op_b5 => "B5",
+    op_b6 => "B6",
+    op_b7 => "B7",
+
+    op_e6 => "E6",
+
+    op_ee => "EE",
+
+    op_f6 => "F6",
+
 }
