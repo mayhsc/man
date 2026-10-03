@@ -49,11 +49,15 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00000010) => {
                 let v = self.regs.a;
-                let addr = self.regs.get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
+                let addr = self
+                    .regs
+                    .get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
                 self.bus.write(addr, v);
             }
             op if (op & 0b11001111 == 0b00001010) => {
-                let addr = self.regs.get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
+                let addr = self
+                    .regs
+                    .get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
                 let v = self.bus.read(addr);
                 self.regs.set8(crate::registers::Reg8::A, v);
             }
@@ -113,6 +117,28 @@ impl<B: Bus> Cpu<B> {
                 let v = (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8);
                 self.regs.set16(r16, v);
             }
+            0x08 => {
+                let addr = (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8);
+                let v = self.regs.sp;
+                self.bus.write(addr, v as u8);
+                self.bus.write(addr + 1, (v >> 8) as u8);
+            }
+            op if (op & 0b11001111 == 0b00000011) => {
+                let r = helpers::reg16_from_index((op >> 4) & 0b11);
+                let v = self.regs.get16(&r) + 1;
+                self.regs.set16(r, v);
+            }
+            op if (op & 0b11001111 == 0b00001011) => {
+                let r = helpers::reg16_from_index((op >> 4) & 0b11);
+                let v = self.regs.get16(&r) - 1;
+                self.regs.set16(r, v);
+            }
+            op if (op & 0b11001111 == 0b00001001) => {
+                let r = helpers::reg16_from_index((op >> 4) & 0b11);
+                let v = self.regs.get16(&r);
+                self.regs.add_hl(v);
+            }
+
             _ => panic!("Instruction has not been implemented yet"),
         };
     }

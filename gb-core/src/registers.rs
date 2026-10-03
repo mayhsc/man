@@ -71,7 +71,7 @@ impl Registers {
         };
     }
 
-    pub(crate) fn get16(&self, r: Reg16) -> u16 {
+    pub(crate) fn get16(&self, r: &Reg16) -> u16 {
         match r {
             Reg16::BC => self.bc(),
             Reg16::DE => self.de(),
@@ -132,15 +132,15 @@ impl Registers {
         (self.h as u16) << 8 | (self.l as u16)
     }
 
-    pub(crate) fn add_a(&mut self, value: u8, carry: bool) {
+    pub(crate) fn add_a(&mut self, v: u8, carry: bool) {
         let carry_in = if carry && self.f.c() { 1 } else { 0 };
         let a = self.a;
 
-        let (r1, c1) = a.overflowing_add(value);
+        let (r1, c1) = a.overflowing_add(v);
         let (result, c2) = r1.overflowing_add(carry_in);
         let carry = c1 || c2;
 
-        let half_carry = (a & 0xF) + (value & 0xF) + carry_in > 0xF;
+        let half_carry = (a & 0xF) + (v & 0xF) + carry_in > 0xF;
 
         self.a = result;
         self.f.set_z(result == 0);
@@ -149,21 +149,35 @@ impl Registers {
         self.f.set_c(carry);
     }
 
-    pub(crate) fn sub_a(&mut self, value: u8, use_carry: bool) {
+    pub(crate) fn sub_a(&mut self, v: u8, use_carry: bool) {
         let carry_in = if use_carry && self.f.c() { 1 } else { 0 };
         let a = self.a;
 
-        let (r1, b1) = a.overflowing_sub(value);
+        let (r1, b1) = a.overflowing_sub(v);
         let (result, b2) = r1.overflowing_sub(carry_in);
         let borrow = b1 || b2;
 
-        let half_borrow = (a & 0xF) < (value & 0xF) + carry_in;
+        let half_borrow = (a & 0xF) < (v & 0xF) + carry_in;
 
         self.a = result;
         self.f.set_z(result == 0);
         self.f.set_n(true);
         self.f.set_h(half_borrow);
         self.f.set_c(borrow);
+    }
+
+    pub(crate) fn add_hl(&mut self, v: u16) {
+        let hl = self.hl();
+
+        let (result, carry) = hl.overflowing_add(v);
+
+        let half_carry = (hl & 0x0FFF) + (v & 0x0FFF) > 0x0FFF;
+
+        self.set16(Reg16::HL, result);
+
+        self.f.set_n(false);
+        self.f.set_h(half_carry);
+        self.f.set_c(carry);
     }
 
     pub(crate) fn and(&mut self, v: u8) {
