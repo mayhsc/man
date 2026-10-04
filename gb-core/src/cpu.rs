@@ -397,8 +397,6 @@ impl<B: Bus> Cpu<B> {
                 val |= 1 << bit;
                 self.write_operand8(operand, val);
             }
-
-            _ => unreachable!(),
         }
     }
 

@@ -1,5 +1,5 @@
-mod cpu;
-mod bus;
+pub mod cpu;
+pub mod bus;
 
 #[cfg(test)]
 mod tests;

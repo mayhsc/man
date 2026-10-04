@@ -22,3 +22,25 @@ impl Bus for FlatBus {
         self.memory[addr as usize] = value;
     }
 }
+
+pub struct MemoryMap {}
+
+impl Default for MemoryMap {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
+impl Bus for MemoryMap {
+    fn read(&self, addr: u16) -> u8 {
+        0
+    }
+
+    fn write(&mut self, addr: u16, value: u8) {}
+}
+
+impl MemoryMap {
+    pub fn new() -> Self{
+        MemoryMap::default()
+    }
+}
