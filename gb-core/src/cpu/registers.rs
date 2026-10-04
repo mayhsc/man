@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::flags::{Condition, Flags};
+use crate::cpu::flags::{Condition, Flags};
 
 pub(crate) enum Reg8 {
     A,

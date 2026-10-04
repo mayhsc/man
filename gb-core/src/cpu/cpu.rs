@@ -1,9 +1,10 @@
 use crate::{
     bus::Bus,
-    flags::Condition,
-    helpers,
-    registers::{Operand8, Reg8, Reg16, Registers},
+    cpu::flags::Condition,
+    cpu::helpers,
+    cpu::registers::{Operand8, Reg8, Reg16, Registers},
 };
+
 
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
@@ -71,7 +72,7 @@ impl<B: Bus> Cpu<B> {
                     .regs
                     .get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
                 let v = self.bus.read(addr);
-                self.regs.set8(crate::registers::Reg8::A, v);
+                self.regs.set8(crate::cpu::registers::Reg8::A, v);
             }
             0x80..=0x9F => {
                 let v = self.read_operand8_index(op & 0b111);

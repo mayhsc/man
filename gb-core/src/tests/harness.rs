@@ -1,6 +1,6 @@
 use crate::bus::{Bus, FlatBus};
-use crate::cpu::Cpu;
-use crate::registers::Registers;
+use crate::cpu::cpu::Cpu;
+use crate::cpu::registers::Registers;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

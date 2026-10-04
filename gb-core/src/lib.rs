@@ -1,8 +1,5 @@
-mod bus;
 mod cpu;
-mod registers;
-mod helpers;
-mod flags;
+mod bus;
 
 #[cfg(test)]
 mod tests;

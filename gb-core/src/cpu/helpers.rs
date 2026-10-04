@@ -1,5 +1,5 @@
 use crate::{
-    flags::Condition, registers::{
+    cpu::flags::Condition, cpu::registers::{
         Operand8, Reg8, Reg16::{self, DE}, Reg16Mem, Reg16Stk,
     },
 };
