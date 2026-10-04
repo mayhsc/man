@@ -294,8 +294,117 @@ impl<B: Bus> Cpu<B> {
         };
     }
 
-    fn execute_cb(&self, op: u8) {}
+    fn execute_cb(&mut self, op: u8) {
+        let reg_idx = op & 0b111;
+        let operand = helpers::operand8_from_index(reg_idx);
+        let mut val = self.read_operand8_index(reg_idx);
 
+        match op {
+            0x00..=0x07 => {
+                let carry = (val & 0x80) != 0;
+                val = val.rotate_left(1);
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(carry);
+            }
+            0x08..=0x0F => {
+                let carry = (val & 0x01) != 0;
+                val = val.rotate_right(1);
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(carry);
+            }
+            0x10..=0x17 => {
+                let old_carry = self.regs.f.c();
+                let new_carry = (val & 0x80) != 0;
+                val = (val << 1) | (old_carry as u8);
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(new_carry);
+            }
+            0x18..=0x1F => {
+                let old_carry = self.regs.f.c();
+                let new_carry = (val & 0x01) != 0;
+                val = (val >> 1) | ((old_carry as u8) << 7);
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(new_carry);
+            }
+            0x20..=0x27 => {
+                let carry = (val & 0x80) != 0;
+                val <<= 1;
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(carry);
+            }
+            0x28..=0x2F => {
+                let carry = (val & 0x01) != 0;
+                val = ((val as i8) >> 1) as u8;
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(carry);
+            }
+            0x30..=0x37 => {
+                val = (val << 4) | (val >> 4);
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(false);
+            }
+            0x38..=0x3F => {
+                let carry = (val & 0x01) != 0;
+                val >>= 1;
+                self.write_operand8(operand, val);
+                self.regs.f.set_z(val == 0);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(false);
+                self.regs.f.set_c(carry);
+            }
+
+            0x40..=0x7F => {
+                let bit = (op >> 3) & 0b111;
+                let is_zero = (val & (1 << bit)) == 0;
+                self.regs.f.set_z(is_zero);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(true);
+            }
+
+            0x80..=0xBF => {
+                let bit = (op >> 3) & 0b111;
+                val &= !(1 << bit);
+                self.write_operand8(operand, val);
+            }
+
+            0xC0..=0xFF => {
+                let bit = (op >> 3) & 0b111;
+                val |= 1 << bit;
+                self.write_operand8(operand, val);
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
+    fn write_operand8(&mut self, dst: Operand8, v: u8) {
+        match dst {
+            Operand8::Reg(r) => self.regs.set8(r, v),
+            Operand8::MemHL => self.bus.write(self.regs.hl(), v),
+            Operand8::D8(_) => panic!("Cannot write to immediate value D8"),
+        }
+    }
     fn pop(&mut self) -> u16 {
         let lo = self.bus.read(self.regs.sp) as u16;
         self.regs.sp = self.regs.sp.wrapping_add(1);
