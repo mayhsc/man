@@ -26,6 +26,13 @@ pub(crate) enum Reg16Mem {
     HLD,
 }
 
+pub(crate) enum Reg16Stk {
+    BC,
+    DE,
+    HL,
+    AF,
+}
+
 pub(crate) enum Operand8 {
     Reg(Reg8),
     MemHL,
@@ -116,13 +123,42 @@ impl Registers {
         }
     }
 
+    pub(crate) fn get16stk(&self, r: &Reg16Stk) -> u16 {
+        match r {
+            Reg16Stk::BC => self.bc(),
+            Reg16Stk::DE => self.de(),
+            Reg16Stk::HL => self.hl(),
+            Reg16Stk::AF => self.af(),
+        }
+    }
+
+    pub(crate) fn set16stk(&mut self, r: Reg16Stk, v: u16) {
+        match r {
+            Reg16Stk::BC => {
+                self.b = (v >> 8) as u8;
+                self.c = (v) as u8;
+            }
+            Reg16Stk::DE => {
+                self.d = (v >> 8) as u8;
+                self.e = (v) as u8;
+            }
+            Reg16Stk::HL => {
+                self.h = (v >> 8) as u8;
+                self.l = (v) as u8;
+            }
+            Reg16Stk::AF => {
+                self.a = (v >> 8) as u8;
+                self.f.from_u8((v as u8) & 0xF0);
+            }
+        };
+    }
+
     pub(crate) fn get_condition(&self, c: Condition) -> bool {
         match c {
             Condition::NZ => !self.f.z(),
             Condition::Z => self.f.z(),
             Condition::NC => !self.f.c(),
             Condition::C => self.f.c(),
-
         }
     }
 
@@ -142,6 +178,9 @@ impl Registers {
         (self.h as u16) << 8 | (self.l as u16)
     }
 
+    pub(crate) fn af(&self) -> u16 {
+        (self.a as u16) << 8 | (self.f.as_u8() as u16)
+    }
 
     pub(crate) fn add_a(&mut self, v: u8, carry: bool) {
         let carry_in = if carry && self.f.c() { 1 } else { 0 };
@@ -333,6 +372,8 @@ impl Registers {
     }
 
     pub(crate) fn jr(&mut self, offset: i8, c: Condition) {
-        if self.get_condition(c) {self.pc = self.pc.wrapping_add_signed(offset as i16);}
+        if self.get_condition(c) {
+            self.pc = self.pc.wrapping_add_signed(offset as i16);
+        }
     }
 }

@@ -264,4 +264,36 @@ opcode_tests! {
     op_dc => "DC",
     op_cd => "CD",
 
+    op_c1 => "C1",
+    op_d1 => "D1",
+    op_e1 => "E1",
+
+
+    op_c5 => "C5",
+    op_d5 => "D5",
+    op_e5 => "E5",
+    op_f5 => "F5",
+
+
+    op_c7 => "C7",
+    op_cf => "CF",
+    op_d7 => "D7",
+    op_df => "DF",
+    op_e7 => "E7",
+    op_ef => "EF",
+    op_f7 => "F7",
+    op_ff => "FF",
+
+
+    op_e2 => "E2",
+    op_e0 => "E0",
+    op_ea => "EA",
+    op_f2 => "F2",
+    op_f0 => "F0",
+    op_fa => "FA",
+
+
+    op_e8 => "E8",
+    op_f8 => "F8",
+    op_f9 => "F9",
 }

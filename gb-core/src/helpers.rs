@@ -1,9 +1,6 @@
 use crate::{
-    flags::Condition,
-    registers::{
-        Operand8, Reg8,
-        Reg16::{self, DE},
-        Reg16Mem,
+    flags::Condition, registers::{
+        Operand8, Reg8, Reg16::{self, DE}, Reg16Mem, Reg16Stk,
     },
 };
 
@@ -47,6 +44,16 @@ pub fn cond_from_index(idx: u8) -> Condition {
         1 => Condition::Z,
         2 => Condition::NC,
         3 => Condition::C,
+        _ => unreachable!(),
+    }
+}
+
+pub fn reg16stk_from_index(idx: u8) -> Reg16Stk {
+    match idx {
+        0 => Reg16Stk::BC,
+        1 => Reg16Stk::DE,
+        2 => Reg16Stk::HL,
+        3 => Reg16Stk::AF,
         _ => unreachable!(),
     }
 }

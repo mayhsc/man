@@ -2,7 +2,7 @@ use crate::{
     bus::Bus,
     flags::Condition,
     helpers,
-    registers::{Operand8, Registers},
+    registers::{Operand8, Reg8, Reg16, Registers},
 };
 
 pub struct Cpu<B: Bus> {
@@ -10,6 +10,7 @@ pub struct Cpu<B: Bus> {
     pub(crate) bus: B,
     opcode: u8,
     ime: bool,
+    ime_pending: bool,
 }
 
 impl<B: Bus> Cpu<B> {
@@ -19,14 +20,18 @@ impl<B: Bus> Cpu<B> {
             bus,
             opcode: 0,
             ime: false,
+            ime_pending: false,
         }
     }
 
     pub fn step(&mut self) {
         self.execute(self.opcode);
+        if self.ime_pending {
+            self.ime = true;
+            self.ime_pending = false;
+        }
         self.opcode = self.fetch_byte();
     }
-
     fn fetch_byte(&mut self) -> u8 {
         let b = self.bus.read(self.regs.pc);
         self.regs.increment();
@@ -198,10 +203,98 @@ impl<B: Bus> Cpu<B> {
 
                 self.call(Some(c));
             }
+            op if (op & 0b11001011) == 0b11000001 => {
+                let r = helpers::reg16stk_from_index((op >> 4) & 0b11);
+                let push = ((op >> 2) & 1) == 1;
+                if push {
+                    let v = self.regs.get16stk(&r);
+                    self.push(v);
+                } else {
+                    let v = self.pop();
+                    self.regs.set16stk(r, v);
+                }
+            }
             0xCD => self.call(None),
+            op if (op & 0b1100_0111) == 0b1100_0111 => {
+                let tgt = ((op >> 3) & 0b111) as u16 * 8;
+                self.call_addr(tgt);
+            }
+            0xE2 => {
+                let a = self.regs.get8(Reg8::A);
+                self.bus.write(0xFF00 + self.regs.get8(Reg8::C) as u16, a);
+            }
+            0xE0 => {
+                let n = self.fetch_byte();
+                let a = self.regs.get8(Reg8::A);
+                self.bus.write(0xFF00 + n as u16, a);
+            }
+            0xEA => {
+                let addr = self.fetch_byte16();
+                let a = self.regs.get8(Reg8::A);
+                self.bus.write(addr, a);
+            }
+
+            0xF2 => {
+                let v = self.bus.read(0xFF00 + self.regs.get8(Reg8::C) as u16);
+                self.regs.set8(Reg8::A, v);
+            }
+            0xF0 => {
+                let n = self.fetch_byte();
+                let v = self.bus.read(0xFF00 + n as u16);
+                self.regs.set8(Reg8::A, v);
+            }
+            0xFA => {
+                let addr = self.fetch_byte16();
+                let v = self.bus.read(addr);
+                self.regs.set8(Reg8::A, v);
+            }
+            0xE8 => {
+                let n = self.fetch_byte() as i8 as i16 as u16;
+                let sp = self.regs.sp;
+                let result = sp.wrapping_add(n);
+
+                let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
+                let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
+
+                self.regs.sp = result;
+                self.regs.f.set_z(false);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(half_carry);
+                self.regs.f.set_c(carry);
+            }
+
+            0xF8 => {
+                let n = self.fetch_byte() as i8 as i16 as u16;
+                let sp = self.regs.sp;
+                let result = sp.wrapping_add(n);
+
+                let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
+                let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
+
+                self.regs.set16(Reg16::HL, result);
+                self.regs.f.set_z(false);
+                self.regs.f.set_n(false);
+                self.regs.f.set_h(half_carry);
+                self.regs.f.set_c(carry);
+            }
+            0xF9 => {
+                self.regs.sp = self.regs.hl();
+            }
+            0xF3 => {
+                self.ime = false;
+            }
+            0xFB => {
+                self.ime_pending = true;
+            }
+            0xCB => {
+                let cb_op = self.fetch_byte();
+                self.execute_cb(cb_op);
+            }
             _ => panic!("Instruction has not been implemented yet"),
         };
     }
+
+    fn execute_cb(&self, op: u8) {}
 
     fn pop(&mut self) -> u16 {
         let lo = self.bus.read(self.regs.sp) as u16;
@@ -283,6 +376,11 @@ impl<B: Bus> Cpu<B> {
             self.push(self.regs.pc);
             self.regs.pc = addr;
         }
+    }
+
+    fn call_addr(&mut self, addr: u16) {
+        self.push(self.regs.pc);
+        self.regs.pc = addr;
     }
 
     fn read_operand8_index(&mut self, idx: u8) -> u8 {
