@@ -1,7 +1,10 @@
+pub mod registers;
+pub mod helpers;
+pub mod flags;
+
 use crate::{
     bus::Bus,
     cpu::flags::Condition,
-    cpu::helpers,
     cpu::registers::{Operand8, Reg8, Reg16, Registers},
 };
 

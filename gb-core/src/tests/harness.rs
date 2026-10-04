@@ -1,5 +1,6 @@
-use crate::bus::{Bus, FlatBus};
-use crate::cpu::cpu::Cpu;
+use crate::bus::Bus;
+use crate::bus::FlatBus;
+use crate::cpu::Cpu;
 use crate::cpu::registers::Registers;
 use serde::Deserialize;
 
