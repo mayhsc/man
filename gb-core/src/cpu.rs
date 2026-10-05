@@ -1,7 +1,10 @@
+pub mod registers;
+pub mod helpers;
+pub mod flags;
+
 use crate::{
     bus::Bus,
     cpu::flags::Condition,
-    cpu::helpers,
     cpu::registers::{Operand8, Reg8, Reg16, Registers},
 };
 
@@ -394,8 +397,6 @@ impl<B: Bus> Cpu<B> {
                 val |= 1 << bit;
                 self.write_operand8(operand, val);
             }
-
-            _ => unreachable!(),
         }
     }
 

@@ -1,10 +1,10 @@
 use crate::{
     cpu::flags::Condition, cpu::registers::{
-        Operand8, Reg8, Reg16::{self, DE}, Reg16Mem, Reg16Stk,
+        Operand8, Reg8, Reg16::{self}, Reg16Mem, Reg16Stk,
     },
 };
 
-pub fn operand8_from_index(idx: u8) -> Operand8 {
+pub(crate) fn operand8_from_index(idx: u8) -> Operand8 {
     match idx {
         0 => Operand8::Reg(Reg8::B),
         1 => Operand8::Reg(Reg8::C),
@@ -18,7 +18,7 @@ pub fn operand8_from_index(idx: u8) -> Operand8 {
     }
 }
 
-pub fn reg16_from_index(idx: u8) -> Reg16 {
+pub(crate) fn reg16_from_index(idx: u8) -> Reg16 {
     match idx {
         0 => Reg16::BC,
         1 => Reg16::DE,
@@ -28,7 +28,7 @@ pub fn reg16_from_index(idx: u8) -> Reg16 {
     }
 }
 
-pub fn reg16mem_from_index(idx: u8) -> Reg16Mem {
+pub(crate) fn reg16mem_from_index(idx: u8) -> Reg16Mem {
     match idx {
         0 => Reg16Mem::BC,
         1 => Reg16Mem::DE,
@@ -38,7 +38,7 @@ pub fn reg16mem_from_index(idx: u8) -> Reg16Mem {
     }
 }
 
-pub fn cond_from_index(idx: u8) -> Condition {
+pub(crate) fn cond_from_index(idx: u8) -> Condition {
     match idx {
         0 => Condition::NZ,
         1 => Condition::Z,
@@ -48,7 +48,7 @@ pub fn cond_from_index(idx: u8) -> Condition {
     }
 }
 
-pub fn reg16stk_from_index(idx: u8) -> Reg16Stk {
+pub(crate) fn reg16stk_from_index(idx: u8) -> Reg16Stk {
     match idx {
         0 => Reg16Stk::BC,
         1 => Reg16Stk::DE,
