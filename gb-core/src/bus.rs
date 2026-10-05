@@ -110,4 +110,18 @@ impl MemoryMap {
     pub fn new() -> Self {
         MemoryMap::default()
     }
+
+pub fn load(&mut self, data: &[u8]) {
+    let bank00_len = data.len().min(0x4000);
+    self.rombank00[..bank00_len].copy_from_slice(&data[..bank00_len]);
+
+    if data.len() > 0x4000 {
+        let bank01_len = (data.len() - 0x4000).min(0x4000);
+        self.rombank01_nn[..bank01_len].copy_from_slice(&data[0x4000..0x4000 + bank01_len]);
+    }
+
+    if data.len() > 0x8000 {
+        todo!();
+    }
+}
 }
