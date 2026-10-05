@@ -3,16 +3,19 @@ pub trait Bus {
     fn write(&mut self, addr: u16, value: u8);
 }
 
+#[cfg(test)]
 pub struct FlatBus {
     pub memory: [u8; 0x10000],
 }
 
+#[cfg(test)]
 impl Default for FlatBus {
     fn default() -> Self {
         Self { memory: [0; 65536] }
     }
 }
 
+#[cfg(test)]
 impl Bus for FlatBus {
     fn read(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
@@ -58,12 +61,49 @@ impl Default for MemoryMap {
         }
     }
 }
+
 impl Bus for MemoryMap {
     fn read(&self, addr: u16) -> u8 {
-        0
+        match addr {
+            0x0000..=0x3FFF => self.rombank00[addr as usize],
+            0x4000..=0x7FFF => self.rombank01_nn[(addr - 0x4000) as usize],
+            0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],
+            0xA000..=0xBFFF => self.extram[(addr - 0xA000) as usize],
+            0xC000..=0xCFFF => self.wram0[(addr - 0xC000) as usize],
+            0xD000..=0xDFFF => {
+                let bank = 0; 
+                self.wram1_7[bank][(addr - 0xD000) as usize]
+            }
+            0xE000..=0xFDFF => {
+                self.read(addr - 0x2000)
+            }
+            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
+            0xFEA0..=0xFEFF => 0xFF, 
+            0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
+            0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
+            0xFFFF => self.ie,
+        }
     }
 
-    fn write(&mut self, addr: u16, value: u8) {}
+    fn write(&mut self, addr: u16, value: u8) {
+        match addr {
+            0x0000..=0x3FFF => {}
+            0x4000..=0x7FFF => {}
+            0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize] = value,
+            0xA000..=0xBFFF => self.extram[(addr - 0xA000) as usize] = value,
+            0xC000..=0xCFFF => self.wram0[(addr - 0xC000) as usize] = value,
+            0xD000..=0xDFFF => {
+                let bank = 0;
+                self.wram1_7[bank][(addr - 0xD000) as usize] = value;
+            }
+            0xE000..=0xFDFF => self.write(addr - 0x2000, value),
+            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = value,
+            0xFEA0..=0xFEFF => {} 
+            0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
+            0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
+            0xFFFF => self.ie = value,
+        }
+    }
 }
 
 impl MemoryMap {
