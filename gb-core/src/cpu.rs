@@ -18,6 +18,9 @@ pub struct Cpu<B: Bus> {
 }
 
 impl<B: Bus> Cpu<B> {
+    // const IE_ADDR: u16 = 0xFFFF;
+    // const IF_ADDR: u16 = 0xFF0F;
+
     pub fn new(bus: B) -> Self {
         Self {
             regs: Registers::default(),
@@ -141,7 +144,7 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00000011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
-                let v = self.regs.get16(&r) + 1;
+                let (v, _) = self.regs.get16(&r).overflowing_add(1);
                 self.regs.set16(r, v);
             }
             op if (op & 0b11001111 == 0b00001011) => {
