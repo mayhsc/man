@@ -298,5 +298,6 @@ opcode_tests! {
     op_f9 => "F9",
 
     op_cb => "CB",
+    
     op_f1 => "F1"
 }

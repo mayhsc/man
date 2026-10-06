@@ -148,7 +148,7 @@ impl Registers {
             }
             Reg16Stk::AF => {
                 self.a = (v >> 8) as u8;
-                self.f.from_u8((v as u8) & 0xF0);
+                self.f = Flags::from_u8((v as u8) & 0xF0);
             }
         };
     }
