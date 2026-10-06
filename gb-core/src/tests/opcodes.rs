@@ -1,4 +1,4 @@
-use super::harness::run_file;
+use super::harness::cpu::run_file;
 
 macro_rules! opcode_tests {
     ($($fn_name:ident => $file:literal),* $(,)?) => {
