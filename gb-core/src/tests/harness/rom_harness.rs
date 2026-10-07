@@ -30,7 +30,7 @@ fn run_test(cpu: &mut Cpu<MemoryMap>, max_steps: u64) -> String {
         if cpu.bus.read(0xFF02) == 0x81 {
             let byte = cpu.bus.read(0xFF01);
             output.push(byte as char);
-            cpu.bus.write(0xFF02, 0x00); 
+            cpu.bus.write(0xFF02, 0x00);
         }
 
         if output.contains("Passed") || output.contains("Failed") {
@@ -43,7 +43,7 @@ fn run_test(cpu: &mut Cpu<MemoryMap>, max_steps: u64) -> String {
 
 pub fn run_file(name: &str) {
     let mut cpu = load(name);
-    let output = run_test(&mut cpu, 50_000_000); 
+    let output = run_test(&mut cpu, 500_00_000);
 
     assert!(
         output.contains("Passed"),

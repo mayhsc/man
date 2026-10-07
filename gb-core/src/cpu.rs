@@ -1,13 +1,12 @@
-pub mod registers;
-pub mod helpers;
 pub mod flags;
+pub mod helpers;
+pub mod registers;
 
 use crate::{
     bus::Bus,
     cpu::flags::Condition,
     cpu::registers::{Operand8, Reg8, Reg16, Registers},
 };
-
 
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
@@ -22,13 +21,15 @@ impl<B: Bus> Cpu<B> {
     // const IF_ADDR: u16 = 0xFF0F;
 
     pub fn new(bus: B) -> Self {
-        Self {
+        let mut cpu = Self {
             regs: Registers::default(),
             bus,
             opcode: 0,
             ime: false,
             ime_pending: false,
-        }
+        };
+        cpu.opcode = cpu.fetch_byte();
+        cpu
     }
 
     pub fn step(&mut self) {
@@ -149,7 +150,7 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00001011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
-                let v = self.regs.get16(&r) - 1;
+                let (v, _) = self.regs.get16(&r).overflowing_sub(1);
                 self.regs.set16(r, v);
             }
             op if (op & 0b11001111 == 0b00001001) => {

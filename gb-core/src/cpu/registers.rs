@@ -39,7 +39,7 @@ pub(crate) enum Operand8 {
     D8(u8),
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -51,6 +51,23 @@ pub struct Registers {
     pub l: u8,
     pub sp: u16,
     pub pc: u16,
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self {
+            a: 0x01,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xD8,
+            f: Flags::from_u8(0xB0),
+            h: 0x01,
+            l: 0x4D,
+            sp: 0xFFEE,
+            pc: 0x00FF,
+        }
+    }
 }
 
 impl Registers {
