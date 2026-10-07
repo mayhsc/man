@@ -4,29 +4,31 @@ pub mod registers;
 
 use crate::{
     bus::Bus,
-    cpu::flags::Condition,
-    cpu::registers::{Operand8, Reg8, Reg16, Registers},
+    cpu::{
+        flags::Condition,
+        registers::{Operand8, Reg8, Reg16, Registers},
+    },
 };
+
+const IE_ADDR: u16 = 0xFFFF;
+const IF_ADDR: u16 = 0xFF0F;
 
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
     pub(crate) bus: B,
     opcode: u8,
     ime: bool,
-    ime_pending: bool,
+    ei_delay: u8,
 }
 
 impl<B: Bus> Cpu<B> {
-    // const IE_ADDR: u16 = 0xFFFF;
-    // const IF_ADDR: u16 = 0xFF0F;
-
     pub fn new(bus: B) -> Self {
         let mut cpu = Self {
             regs: Registers::default(),
             bus,
             opcode: 0,
             ime: false,
-            ime_pending: false,
+            ei_delay: 0,
         };
         cpu.opcode = cpu.fetch_byte();
         cpu
@@ -34,12 +36,16 @@ impl<B: Bus> Cpu<B> {
 
     pub fn step(&mut self) {
         self.execute(self.opcode);
-        if self.ime_pending {
-            self.ime = true;
-            self.ime_pending = false;
+        self.handle_interrupt();
+        if self.ei_delay > 0 {
+            self.ei_delay -= 1;
+            if self.ei_delay == 0 {
+                self.ime = true;
+            }
         }
         self.opcode = self.fetch_byte();
     }
+
     fn fetch_byte(&mut self) -> u8 {
         let b = self.bus.read(self.regs.pc);
         self.regs.increment();
@@ -48,6 +54,49 @@ impl<B: Bus> Cpu<B> {
 
     fn fetch_byte16(&mut self) -> u16 {
         (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8)
+    }
+
+    fn handle_interrupt(&mut self) {
+        let enable_interrupt = self.bus.read(IE_ADDR) == 0b00011111;
+        let _if = self.bus.read(IF_ADDR);
+        let has_interrupt = _if == 0b00011111;
+        if self.ime == false || !enable_interrupt || !has_interrupt {
+            return;
+        }
+        self.ime = false;
+        self.ei_delay = 0;
+
+        let addr = match _if {
+            op if (op & 0b0000_0001) != 0 => {
+                self.disable_interrupt(_if, 0);
+                0x0040
+            }
+            op if (op & 0b0000_0010) != 0 => {
+                self.disable_interrupt(_if, 1);
+                0x0048
+            }
+            op if (op & 0b0000_0100) != 0 => {
+                self.disable_interrupt(_if, 2);
+                0x0050
+            }
+            op if (op & 0b0000_1000) != 0 => {
+                self.disable_interrupt(_if, 3);
+                0x0058
+            }
+            op if (op & 0b0001_0000) != 0 => {
+                self.disable_interrupt(_if, 4);
+                0x0060
+            }
+            _ => 0x0000,
+        };
+
+        self.push(self.regs.pc);
+        self.regs.pc = addr;
+    }
+
+    fn disable_interrupt(&mut self, _if: u8, bit: u8) {
+        let _if = (_if & !(1 << bit)) | ((0 as u8) << bit);
+        self.bus.write(IF_ADDR, _if);
     }
 
     fn execute(&mut self, op: u8) {
@@ -290,9 +339,10 @@ impl<B: Bus> Cpu<B> {
             }
             0xF3 => {
                 self.ime = false;
+                self.ei_delay = 0;
             }
             0xFB => {
-                self.ime_pending = true;
+                self.ei_delay = 2;
             }
             0xCB => {
                 let cb_op = self.fetch_byte();

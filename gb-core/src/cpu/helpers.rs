@@ -1,6 +1,9 @@
 use crate::{
-    cpu::flags::Condition, cpu::registers::{
-        Operand8, Reg8, Reg16::{self}, Reg16Mem, Reg16Stk,
+    cpu::flags::Condition,
+    cpu::registers::{
+        Operand8, Reg8,
+        Reg16::{self},
+        Reg16Mem, Reg16Stk,
     },
 };
 
