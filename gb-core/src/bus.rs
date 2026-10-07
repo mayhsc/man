@@ -65,6 +65,8 @@ impl Default for MemoryMap {
 impl Bus for MemoryMap {
     fn read(&self, addr: u16) -> u8 {
         match addr {
+            // Added temporaraily for testing with gameboy doctor
+            0xFF44 => 0x90,
             0x0000..=0x3FFF => self.rombank00[addr as usize],
             0x4000..=0x7FFF => self.rombank01_nn[(addr - 0x4000) as usize],
             0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],

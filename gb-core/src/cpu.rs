@@ -10,6 +10,9 @@ use crate::{
     },
 };
 
+use std::fs::File;
+use std::io::{BufWriter, Write};
+
 const IE_ADDR: u16 = 0xFFFF;
 const IF_ADDR: u16 = 0xFF0F;
 
@@ -19,16 +22,24 @@ pub struct Cpu<B: Bus> {
     opcode: u8,
     ime: bool,
     ei_delay: u8,
+    // Logging for gameboy doctor
+    doctor_log: Option<BufWriter<File>>,
 }
 
 impl<B: Bus> Cpu<B> {
     pub fn new(bus: B) -> Self {
+        let root = project_root::get_project_root().expect("Failed to find git root");
+        let log_path = root.join("gb_doctor.log");
+        let file = File::create(log_path).expect("Failed to create file");
+        let writer = BufWriter::new(file);
+
         let mut cpu = Self {
             regs: Registers::default(),
             bus,
             opcode: 0,
             ime: false,
             ei_delay: 0,
+            doctor_log: Some(writer),
         };
         cpu.opcode = cpu.fetch_byte();
         cpu
@@ -36,6 +47,7 @@ impl<B: Bus> Cpu<B> {
 
     pub fn step(&mut self) {
         self.execute(self.opcode);
+        self.log();
         self.handle_interrupt();
         if self.ei_delay > 0 {
             self.ei_delay -= 1;
@@ -350,6 +362,36 @@ impl<B: Bus> Cpu<B> {
             }
             _ => panic!("Instruction has not been implemented yet"),
         };
+    }
+
+    fn log(&mut self) {
+        if let Some(ref mut writer) = self.doctor_log {
+            let pc = self.regs.pc;
+            let m0 = self.bus.read(pc);
+            let m1 = self.bus.read(pc.wrapping_add(1));
+            let m2 = self.bus.read(pc.wrapping_add(2));
+            let m3 = self.bus.read(pc.wrapping_add(3));
+
+            let log_line = format!(
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                self.regs.a,
+                self.regs.f.as_u8(),
+                self.regs.b,
+                self.regs.c,
+                self.regs.d,
+                self.regs.e,
+                self.regs.h,
+                self.regs.l,
+                self.regs.sp,
+                self.regs.pc,
+                m0,
+                m1,
+                m2,
+                m3
+            );
+
+            let _ = writer.write_all(log_line.as_bytes());
+        }
     }
 
     fn execute_cb(&mut self, op: u8) {
