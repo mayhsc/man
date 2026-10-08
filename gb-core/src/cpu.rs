@@ -82,7 +82,7 @@ impl<B: Bus> Cpu<B> {
         }
 
         self.ime = false;
-        self.ei_delay = 0;
+        self.ei_delay = 0; 
 
         let (bit_index, target_pc) = match pending_interrupts {
             op if (op & 0x01) != 0 => (0, 0x0040), // V-Blank
