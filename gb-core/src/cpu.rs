@@ -69,46 +69,35 @@ impl<B: Bus> Cpu<B> {
     }
 
     fn handle_interrupt(&mut self) {
-        let enable_interrupt = self.bus.read(IE_ADDR) == 0b00011111;
+        let ie = self.bus.read(IE_ADDR);
         let _if = self.bus.read(IF_ADDR);
-        let has_interrupt = _if == 0b00011111;
-        if self.ime == false || !enable_interrupt || !has_interrupt {
+
+        let pending_interrupts = ie & _if & 0x1F;
+
+        if pending_interrupts != 0 {
+        }
+
+        if !self.ime || pending_interrupts == 0 {
             return;
         }
+
         self.ime = false;
         self.ei_delay = 0;
 
-        let addr = match _if {
-            op if (op & 0b0000_0001) != 0 => {
-                self.disable_interrupt(_if, 0);
-                0x0040
-            }
-            op if (op & 0b0000_0010) != 0 => {
-                self.disable_interrupt(_if, 1);
-                0x0048
-            }
-            op if (op & 0b0000_0100) != 0 => {
-                self.disable_interrupt(_if, 2);
-                0x0050
-            }
-            op if (op & 0b0000_1000) != 0 => {
-                self.disable_interrupt(_if, 3);
-                0x0058
-            }
-            op if (op & 0b0001_0000) != 0 => {
-                self.disable_interrupt(_if, 4);
-                0x0060
-            }
-            _ => 0x0000,
+        let (bit_index, target_pc) = match pending_interrupts {
+            op if (op & 0x01) != 0 => (0, 0x0040), // V-Blank
+            op if (op & 0x02) != 0 => (1, 0x0048), // LCD STAT
+            op if (op & 0x04) != 0 => (2, 0x0050), // Timer
+            op if (op & 0x08) != 0 => (3, 0x0058), // Serial
+            op if (op & 0x10) != 0 => (4, 0x0060), // Joypad
+            _ => return,
         };
 
-        self.push(self.regs.pc);
-        self.regs.pc = addr;
-    }
+        let updated_if = _if & !(1 << bit_index);
+        self.bus.write(IF_ADDR, updated_if);
 
-    fn disable_interrupt(&mut self, _if: u8, bit: u8) {
-        let _if = (_if & !(1 << bit)) | ((0 as u8) << bit);
-        self.bus.write(IF_ADDR, _if);
+        self.push(self.regs.pc);
+        self.regs.pc = target_pc;
     }
 
     fn execute(&mut self, op: u8) {

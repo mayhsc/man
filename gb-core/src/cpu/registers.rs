@@ -64,7 +64,7 @@ impl Default for Registers {
             f: Flags::from_u8(0xB0),
             h: 0x01,
             l: 0x4D,
-            sp: 0xFFEE,
+            sp: 0xFFFE,
             pc: 0x00FF,
         }
     }
