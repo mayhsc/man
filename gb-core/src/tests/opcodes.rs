@@ -1,11 +1,11 @@
-use super::harness::cpu_harness::run_file;
+use super::harness::cpu_harness::{run_file, TestType};
 
 macro_rules! opcode_tests {
     ($($fn_name:ident => $file:literal),* $(,)?) => {
         $(
             #[test]
             fn $fn_name() {
-                run_file($file);
+                run_file($file, TestType::Opcode);
             }
         )*
     };

@@ -1,8 +1,15 @@
+use std::cell::RefCell;
+
 use crate::bus::Bus;
 use crate::bus::FlatBus;
 use crate::cpu::Cpu;
 use crate::cpu::registers::Registers;
 use serde::Deserialize;
+
+pub(crate) enum TestType {
+    Opcode,
+    Cycle,
+}
 
 #[derive(Debug, Deserialize)]
 struct CpuState {
@@ -17,9 +24,36 @@ struct TestCase {
     initial: CpuState,
     #[serde(rename = "final")]
     expected: CpuState,
+    cycles: Vec<Option<(u16, u8, String)>>,
 }
 
-fn bus_from_state(state: &CpuState) -> FlatBus {
+struct TracingBus {
+    inner: FlatBus,
+    log: RefCell<Vec<(u16, u8, &'static str)>>,
+}
+
+impl Default for TracingBus {
+    fn default() -> Self {
+        Self {
+            inner: FlatBus::default(),
+            log: RefCell::new(vec![]),
+        }
+    }
+}
+
+impl Bus for TracingBus {
+    fn read(&self, addr: u16) -> u8 {
+        let v = self.inner.read(addr);
+        self.log.borrow_mut().push((addr, v, "read"));
+        v
+    }
+    fn write(&mut self, addr: u16, value: u8) {
+        self.inner.write(addr, value);
+        self.log.borrow_mut().push((addr, value, "write"));
+    }
+}
+
+fn flat_bus_from_state(state: &CpuState) -> FlatBus {
     let mut bus = FlatBus::default();
     for &(addr, value) in &state.ram {
         bus.write(addr, value);
@@ -27,8 +61,16 @@ fn bus_from_state(state: &CpuState) -> FlatBus {
     bus
 }
 
-fn run_test(tc: &TestCase, opcode: u8) {
-    let bus = bus_from_state(&tc.initial);
+fn tracing_bus_from_state(state: &CpuState) -> TracingBus {
+    let mut bus = TracingBus::default();
+    for &(addr, value) in &state.ram {
+        bus.write(addr, value);
+    }
+    bus
+}
+
+fn run_opcode_test(tc: &TestCase, opcode: u8) {
+    let bus = flat_bus_from_state(&tc.initial);
     let mut cpu = Cpu::new(bus);
 
     cpu.regs = tc.initial.regs.clone();
@@ -50,16 +92,50 @@ fn assert_state<B: Bus>(cpu: &Cpu<B>, expected: &CpuState, name: &str) {
     }
 }
 
+fn run_cycle_test(tc: &TestCase, opcode: u8) {
+    let bus = tracing_bus_from_state(&tc.initial);
+    let mut cpu = Cpu::new(bus);
+
+    cpu.regs = tc.initial.regs.clone();
+    cpu.set_opcode(opcode);
+
+    cpu.step();
+
+    let actual = cpu.bus.log.borrow();
+    let expected: Vec<_> = tc.cycles.iter().flatten().collect();
+    assert_eq!(
+        actual.len(),
+        expected.len(),
+        "{}: bus access count",
+        tc.name
+    );
+    for (a, e) in actual.iter().zip(expected) {
+        assert_eq!(
+            (a.0, a.1, a.2),
+            (e.0, e.1, e.2.as_str()),
+            "{}: bus access",
+            tc.name
+        );
+    }
+}
+
 fn load(name: &str) -> Vec<TestCase> {
     let path = format!("{}/tests/sm83/{name}.json", env!("CARGO_MANIFEST_DIR"));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{path}: {e}"));
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("{path}: {e}"))
 }
 
-pub fn run_file(name: &str) {
+pub fn run_file(name: &str, test_type: TestType) {
     for tc in load(name) {
         let opcode: u8 = parse_hex(name);
-        run_test(&tc, opcode);
+        match test_type {
+            TestType::Opcode => {
+                run_opcode_test(&tc, opcode);
+            }
+            TestType::Cycle => {
+                run_cycle_test(&tc, opcode);
+            }
+        }
     }
 }
 
