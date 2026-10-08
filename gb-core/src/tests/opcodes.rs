@@ -1,4 +1,4 @@
-use super::harness::run_file;
+use super::harness::cpu::run_file;
 
 macro_rules! opcode_tests {
     ($($fn_name:ident => $file:literal),* $(,)?) => {
@@ -297,5 +297,7 @@ opcode_tests! {
     op_f8 => "F8",
     op_f9 => "F9",
 
-    op_cb => "CB"
+    op_cb => "CB",
+    
+    op_f1 => "F1"
 }

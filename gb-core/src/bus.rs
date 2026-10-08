@@ -65,20 +65,20 @@ impl Default for MemoryMap {
 impl Bus for MemoryMap {
     fn read(&self, addr: u16) -> u8 {
         match addr {
+            // Added temporaraily for testing with gameboy doctor
+            0xFF44 => 0x90,
             0x0000..=0x3FFF => self.rombank00[addr as usize],
             0x4000..=0x7FFF => self.rombank01_nn[(addr - 0x4000) as usize],
             0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],
             0xA000..=0xBFFF => self.extram[(addr - 0xA000) as usize],
             0xC000..=0xCFFF => self.wram0[(addr - 0xC000) as usize],
             0xD000..=0xDFFF => {
-                let bank = 0; 
+                let bank = 0;
                 self.wram1_7[bank][(addr - 0xD000) as usize]
             }
-            0xE000..=0xFDFF => {
-                self.read(addr - 0x2000)
-            }
+            0xE000..=0xFDFF => self.read(addr - 0x2000),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
-            0xFEA0..=0xFEFF => 0xFF, 
+            0xFEA0..=0xFEFF => 0xFF,
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
             0xFFFF => self.ie,
@@ -98,7 +98,7 @@ impl Bus for MemoryMap {
             }
             0xE000..=0xFDFF => self.write(addr - 0x2000, value),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = value,
-            0xFEA0..=0xFEFF => {} 
+            0xFEA0..=0xFEFF => {}
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
             0xFFFF => self.ie = value,
@@ -111,17 +111,17 @@ impl MemoryMap {
         MemoryMap::default()
     }
 
-pub fn load(&mut self, data: &[u8]) {
-    let bank00_len = data.len().min(0x4000);
-    self.rombank00[..bank00_len].copy_from_slice(&data[..bank00_len]);
+    pub fn load(&mut self, data: &[u8]) {
+        let bank00_len = data.len().min(0x4000);
+        self.rombank00[..bank00_len].copy_from_slice(&data[..bank00_len]);
 
-    if data.len() > 0x4000 {
-        let bank01_len = (data.len() - 0x4000).min(0x4000);
-        self.rombank01_nn[..bank01_len].copy_from_slice(&data[0x4000..0x4000 + bank01_len]);
-    }
+        if data.len() > 0x4000 {
+            let bank01_len = (data.len() - 0x4000).min(0x4000);
+            self.rombank01_nn[..bank01_len].copy_from_slice(&data[0x4000..0x4000 + bank01_len]);
+        }
 
-    if data.len() > 0x8000 {
-        todo!();
+        if data.len() > 0x8000 {
+            todo!();
+        }
     }
-}
 }

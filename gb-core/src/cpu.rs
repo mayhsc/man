@@ -1,41 +1,63 @@
-pub mod registers;
-pub mod helpers;
 pub mod flags;
+pub mod helpers;
+pub mod registers;
 
 use crate::{
     bus::Bus,
-    cpu::flags::Condition,
-    cpu::registers::{Operand8, Reg8, Reg16, Registers},
+    cpu::{
+        flags::Condition,
+        registers::{Operand8, Reg8, Reg16, Registers},
+    },
 };
 
+use std::fs::File;
+use std::io::{BufWriter, Write};
+
+const IE_ADDR: u16 = 0xFFFF;
+const IF_ADDR: u16 = 0xFF0F;
 
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
     pub(crate) bus: B,
     opcode: u8,
     ime: bool,
-    ime_pending: bool,
+    ei_delay: u8,
+    // Logging for gameboy doctor
+    doctor_log: Option<BufWriter<File>>,
 }
 
 impl<B: Bus> Cpu<B> {
     pub fn new(bus: B) -> Self {
-        Self {
+        let root = project_root::get_project_root().expect("Failed to find git root");
+        let log_path = root.join("gb_doctor.log");
+        let file = File::create(log_path).expect("Failed to create file");
+        let writer = BufWriter::new(file);
+
+        let mut cpu = Self {
             regs: Registers::default(),
             bus,
             opcode: 0,
             ime: false,
-            ime_pending: false,
-        }
+            ei_delay: 0,
+            doctor_log: Some(writer),
+        };
+        cpu.opcode = cpu.fetch_byte();
+        cpu
     }
 
     pub fn step(&mut self) {
         self.execute(self.opcode);
-        if self.ime_pending {
-            self.ime = true;
-            self.ime_pending = false;
+        self.log();
+        self.handle_interrupt();
+        if self.ei_delay > 0 {
+            self.ei_delay -= 1;
+            if self.ei_delay == 0 {
+                self.ime = true;
+            }
         }
         self.opcode = self.fetch_byte();
     }
+
     fn fetch_byte(&mut self) -> u8 {
         let b = self.bus.read(self.regs.pc);
         self.regs.increment();
@@ -44,6 +66,38 @@ impl<B: Bus> Cpu<B> {
 
     fn fetch_byte16(&mut self) -> u16 {
         (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8)
+    }
+
+    fn handle_interrupt(&mut self) {
+        let ie = self.bus.read(IE_ADDR);
+        let _if = self.bus.read(IF_ADDR);
+
+        let pending_interrupts = ie & _if & 0x1F;
+
+        if pending_interrupts != 0 {
+        }
+
+        if !self.ime || pending_interrupts == 0 {
+            return;
+        }
+
+        self.ime = false;
+        self.ei_delay = 0;
+
+        let (bit_index, target_pc) = match pending_interrupts {
+            op if (op & 0x01) != 0 => (0, 0x0040), // V-Blank
+            op if (op & 0x02) != 0 => (1, 0x0048), // LCD STAT
+            op if (op & 0x04) != 0 => (2, 0x0050), // Timer
+            op if (op & 0x08) != 0 => (3, 0x0058), // Serial
+            op if (op & 0x10) != 0 => (4, 0x0060), // Joypad
+            _ => return,
+        };
+
+        let updated_if = _if & !(1 << bit_index);
+        self.bus.write(IF_ADDR, updated_if);
+
+        self.push(self.regs.pc);
+        self.regs.pc = target_pc;
     }
 
     fn execute(&mut self, op: u8) {
@@ -141,12 +195,12 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11001111 == 0b00000011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
-                let v = self.regs.get16(&r) + 1;
+                let (v, _) = self.regs.get16(&r).overflowing_add(1);
                 self.regs.set16(r, v);
             }
             op if (op & 0b11001111 == 0b00001011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
-                let v = self.regs.get16(&r) - 1;
+                let (v, _) = self.regs.get16(&r).overflowing_sub(1);
                 self.regs.set16(r, v);
             }
             op if (op & 0b11001111 == 0b00001001) => {
@@ -286,9 +340,10 @@ impl<B: Bus> Cpu<B> {
             }
             0xF3 => {
                 self.ime = false;
+                self.ei_delay = 0;
             }
             0xFB => {
-                self.ime_pending = true;
+                self.ei_delay = 2;
             }
             0xCB => {
                 let cb_op = self.fetch_byte();
@@ -296,6 +351,36 @@ impl<B: Bus> Cpu<B> {
             }
             _ => panic!("Instruction has not been implemented yet"),
         };
+    }
+
+    fn log(&mut self) {
+        if let Some(ref mut writer) = self.doctor_log {
+            let pc = self.regs.pc;
+            let m0 = self.bus.read(pc);
+            let m1 = self.bus.read(pc.wrapping_add(1));
+            let m2 = self.bus.read(pc.wrapping_add(2));
+            let m3 = self.bus.read(pc.wrapping_add(3));
+
+            let log_line = format!(
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                self.regs.a,
+                self.regs.f.as_u8(),
+                self.regs.b,
+                self.regs.c,
+                self.regs.d,
+                self.regs.e,
+                self.regs.h,
+                self.regs.l,
+                self.regs.sp,
+                self.regs.pc,
+                m0,
+                m1,
+                m2,
+                m3
+            );
+
+            let _ = writer.write_all(log_line.as_bytes());
+        }
     }
 
     fn execute_cb(&mut self, op: u8) {
