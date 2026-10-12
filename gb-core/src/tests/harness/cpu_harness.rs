@@ -51,6 +51,10 @@ impl Bus for TracingBus {
         self.inner.write(addr, value);
         self.log.borrow_mut().push((addr, value, "write"));
     }
+
+    fn peek(&self, addr: u16) -> u8 {
+        self.inner.peek(addr)
+    }
 }
 
 fn flat_bus_from_state(state: &CpuState) -> FlatBus {
@@ -98,22 +102,29 @@ fn run_cycle_test(tc: &TestCase, opcode: u8) {
 
     cpu.regs = tc.initial.regs.clone();
     cpu.set_opcode(opcode);
+    cpu.bus.log.borrow_mut().clear();
 
-    cpu.step();
+    let m_cycles = cpu.step();
 
-    let actual = cpu.bus.log.borrow();
+    assert_eq!(m_cycles as usize, tc.cycles.len(), "{}: m_cycles", tc.name);
+
     let expected: Vec<_> = tc.cycles.iter().flatten().collect();
+    let actual = cpu.bus.log.borrow();
+
     assert_eq!(
         actual.len(),
         expected.len(),
-        "{}: bus access count",
-        tc.name
+        "{}: bus access count (actual {:?}, expected {:?})",
+        tc.name,
+        *actual,
+        expected
     );
-    for (a, e) in actual.iter().zip(expected) {
+
+    for (i, (a, e)) in actual.iter().zip(&expected).enumerate() {
         assert_eq!(
             (a.0, a.1, a.2),
             (e.0, e.1, e.2.as_str()),
-            "{}: bus access",
+            "{}: bus access #{i}",
             tc.name
         );
     }
