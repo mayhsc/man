@@ -207,10 +207,10 @@ opcode_tests! {
     op_2b => "2B",
     op_3b => "3B",
 
-    // op_09 => "09",
-    // op_19 => "19",
-    // op_29 => "29",
-    // op_39 => "39",
+    op_09 => "09",
+    op_19 => "19",
+    op_29 => "29",
+    op_39 => "39",
 
     op_04 => "04",
     op_0c => "0C",
@@ -245,45 +245,45 @@ opcode_tests! {
     op_30 => "30",
     op_38 => "38",
 
-    // op_c0 => "C0",
-    // op_c8 => "C8",
-    // op_d0 => "D0",
-    // op_d8 => "D8",
-    // op_c9 => "C9",
-    // op_d9 => "D9",
+    op_c0 => "C0",
+    op_c8 => "C8",
+    op_d0 => "D0",
+    op_d8 => "D8",
+    op_c9 => "C9",
+    op_d9 => "D9",
 
-    // op_c2 => "C2",
-    // op_ca => "CA",
-    // op_d2 => "D2",
-    // op_da => "DA",
-    // op_c3 => "C3",
-    // op_e9 => "E9",
+    op_c2 => "C2",
+    op_ca => "CA",
+    op_d2 => "D2",
+    op_da => "DA",
+    op_c3 => "C3",
+    op_e9 => "E9",
 
-    // op_c4 => "C4",
-    // op_cc => "CC",
-    // op_d4 => "D4",
-    // op_dc => "DC",
-    // op_cd => "CD",
+    op_c4 => "C4",
+    op_cc => "CC",
+    op_d4 => "D4",
+    op_dc => "DC",
+    op_cd => "CD",
 
     op_c1 => "C1",
     op_d1 => "D1",
     op_e1 => "E1",
 
 
-    // op_c5 => "C5",
-    // op_d5 => "D5",
-    // op_e5 => "E5",
-    // op_f5 => "F5",
+    op_c5 => "C5",
+    op_d5 => "D5",
+    op_e5 => "E5",
+    op_f5 => "F5",
 
 
-    // op_c7 => "C7",
-    // op_cf => "CF",
-    // op_d7 => "D7",
-    // op_df => "DF",
-    // op_e7 => "E7",
-    // op_ef => "EF",
-    // op_f7 => "F7",
-    // op_ff => "FF",
+    op_c7 => "C7",
+    op_cf => "CF",
+    op_d7 => "D7",
+    op_df => "DF",
+    op_e7 => "E7",
+    op_ef => "EF",
+    op_f7 => "F7",
+    op_ff => "FF",
 
 
     op_e2 => "E2",
@@ -294,11 +294,11 @@ opcode_tests! {
     op_fa => "FA",
 
 
-    // op_e8 => "E8",
-    // op_f8 => "F8",
-    // op_f9 => "F9",
+    op_e8 => "E8",
+    op_f8 => "F8",
+    op_f9 => "F9",
 
-    // op_cb => "CB",
+    op_cb => "CB",
 
     op_f1 => "F1"
 }

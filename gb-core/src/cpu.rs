@@ -91,14 +91,16 @@ impl<B: Bus> Cpu<B> {
             return;
         }
 
-        let ie = self.read(IE_ADDR);
-        let _if = self.read(IF_ADDR);
+        let ie = self.bus.peek(IE_ADDR);
+        let _if = self.bus.peek(IF_ADDR);
 
         let pending_interrupts = ie & _if & 0x1F;
 
         if pending_interrupts == 0 {
             return;
         }
+        self.tick();
+        self.tick();
 
         self.ime = false;
         self.ei_delay = 0;
@@ -228,6 +230,7 @@ impl<B: Bus> Cpu<B> {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let v = self.regs.get16(&r);
                 self.regs.add_hl(v);
+                self.tick();
             }
             op if (op & 0b11000111 == 0b00000100) => {
                 let dst = helpers::operand8_from_index((op >> 3) & 0b111);
@@ -262,6 +265,7 @@ impl<B: Bus> Cpu<B> {
             }
             op if (op & 0b11100111 == 0b11000000) => {
                 let c = helpers::cond_from_index((op >> 3) & 0b11);
+                self.tick();
                 if self.regs.get_condition(c) {
                     self.ret();
                 }
@@ -292,15 +296,18 @@ impl<B: Bus> Cpu<B> {
                 if push {
                     let v = self.regs.get16stk(&r);
                     self.push(v);
+                    self.tick();
                 } else {
                     let v = self.pop();
                     self.regs.set16stk(r, v);
                 }
+                // self.tick();
             }
             0xCD => self.call(None),
             op if (op & 0b1100_0111) == 0b1100_0111 => {
                 let tgt = ((op >> 3) & 0b111) as u16 * 8;
                 self.call_addr(tgt);
+                self.tick();
             }
             0xE2 => {
                 let a = self.regs.get8(Reg8::A);
@@ -339,11 +346,13 @@ impl<B: Bus> Cpu<B> {
                 let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
                 let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
 
+                self.tick();
                 self.regs.sp = result;
                 self.regs.f.set_z(false);
                 self.regs.f.set_n(false);
                 self.regs.f.set_h(half_carry);
                 self.regs.f.set_c(carry);
+                self.tick();
             }
 
             0xF8 => {
@@ -354,6 +363,7 @@ impl<B: Bus> Cpu<B> {
                 let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
                 let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
 
+                self.tick();
                 self.regs.set16(Reg16::HL, result);
                 self.regs.f.set_z(false);
                 self.regs.f.set_n(false);
@@ -362,6 +372,7 @@ impl<B: Bus> Cpu<B> {
             }
             0xF9 => {
                 self.regs.sp = self.regs.hl();
+                self.tick();
             }
             0xF3 => {
                 self.ime = false;
@@ -580,6 +591,7 @@ impl<B: Bus> Cpu<B> {
 
     fn ret(&mut self) {
         self.regs.pc = self.pop();
+        self.tick();
     }
 
     fn jmp(&mut self, condition: Option<Condition>) {
@@ -587,6 +599,7 @@ impl<B: Bus> Cpu<B> {
 
         if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
             self.regs.pc = addr;
+            self.tick();
         }
     }
 
@@ -596,6 +609,7 @@ impl<B: Bus> Cpu<B> {
         if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
             self.push(self.regs.pc);
             self.regs.pc = addr;
+            self.tick();
         }
     }
 
