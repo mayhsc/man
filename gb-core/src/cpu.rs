@@ -216,11 +216,13 @@ impl<B: Bus> Cpu<B> {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let (v, _) = self.regs.get16(&r).overflowing_add(1);
                 self.regs.set16(r, v);
+                self.tick();
             }
             op if (op & 0b11001111 == 0b00001011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let (v, _) = self.regs.get16(&r).overflowing_sub(1);
                 self.regs.set16(r, v);
+                self.tick();
             }
             op if (op & 0b11001111 == 0b00001001) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
@@ -248,11 +250,15 @@ impl<B: Bus> Cpu<B> {
             0x18 => {
                 let offset = self.fetch_byte() as i8;
                 self.regs.pc = self.regs.pc.wrapping_add_signed(offset as i16);
+                self.tick();
             }
             op if (op & 0b11100111 == 0b00100000) => {
                 let offset = self.fetch_byte() as i8;
                 let c = helpers::cond_from_index((op >> 3) & 0b11);
-                self.regs.jr(offset, c);
+                if self.regs.get_condition(c) {
+                    self.regs.jr(offset);
+                    self.tick();
+                }
             }
             op if (op & 0b11100111 == 0b11000000) => {
                 let c = helpers::cond_from_index((op >> 3) & 0b11);

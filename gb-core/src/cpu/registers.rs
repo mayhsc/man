@@ -388,9 +388,7 @@ impl Registers {
         self.f.set_c(carry);
     }
 
-    pub(crate) fn jr(&mut self, offset: i8, c: Condition) {
-        if self.get_condition(c) {
+    pub(crate) fn jr(&mut self, offset: i8) {
             self.pc = self.pc.wrapping_add_signed(offset as i16);
-        }
     }
 }
