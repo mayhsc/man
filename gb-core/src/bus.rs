@@ -1,3 +1,5 @@
+use crate::timer::Timer;
+
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, value: u8);
@@ -5,29 +7,8 @@ pub trait Bus {
     fn peek(&self, addr: u16) -> u8 {
         self.read(addr)
     }
-}
 
-#[cfg(test)]
-pub struct FlatBus {
-    pub memory: [u8; 0x10000],
-}
-
-#[cfg(test)]
-impl Default for FlatBus {
-    fn default() -> Self {
-        Self { memory: [0; 65536] }
-    }
-}
-
-#[cfg(test)]
-impl Bus for FlatBus {
-    fn read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
-    }
-
-    fn write(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value;
-    }
+    fn tick(&mut self) {}
 }
 
 pub struct MemoryMap {
@@ -44,6 +25,8 @@ pub struct MemoryMap {
     io_regs: [u8; 0x0080],
     hram: [u8; 0x007F],
     ie: u8,
+
+    timer: Timer,
 }
 
 impl Default for MemoryMap {
@@ -62,6 +45,7 @@ impl Default for MemoryMap {
             io_regs: [0; 0x0080],
             hram: [0; 0x007F],
             ie: 0,
+            timer: Timer::new(),
         }
     }
 }
