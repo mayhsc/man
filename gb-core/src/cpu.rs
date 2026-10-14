@@ -22,6 +22,7 @@ pub struct Cpu<B: Bus> {
     opcode: u8,
     ime: bool,
     ei_delay: u8,
+    m_cycles: u32,
     // Logging for gameboy doctor
     doctor_log: Option<BufWriter<File>>,
 }
@@ -39,13 +40,15 @@ impl<B: Bus> Cpu<B> {
             opcode: 0,
             ime: false,
             ei_delay: 0,
+            m_cycles: 0,
             doctor_log: Some(writer),
         };
         cpu.opcode = cpu.fetch_byte();
         cpu
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> u32 {
+        self.m_cycles = 0;
         self.execute(self.opcode);
         self.log();
         self.handle_interrupt();
@@ -56,10 +59,25 @@ impl<B: Bus> Cpu<B> {
             }
         }
         self.opcode = self.fetch_byte();
+        self.m_cycles
+    }
+
+    pub fn read(&mut self, addr: u16) -> u8 {
+        self.m_cycles += 1;
+        self.bus.read(addr)
+    }
+
+    pub fn write(&mut self, addr: u16, value: u8) {
+        self.m_cycles += 1;
+        self.bus.write(addr, value);
+    }
+
+    pub fn tick(&mut self) {
+        self.m_cycles += 1
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let b = self.bus.read(self.regs.pc);
+        let b = self.read(self.regs.pc);
         self.regs.increment();
         b
     }
@@ -69,17 +87,20 @@ impl<B: Bus> Cpu<B> {
     }
 
     fn handle_interrupt(&mut self) {
-        let ie = self.bus.read(IE_ADDR);
-        let _if = self.bus.read(IF_ADDR);
+        if !self.ime {
+            return;
+        }
+
+        let ie = self.bus.peek(IE_ADDR);
+        let _if = self.bus.peek(IF_ADDR);
 
         let pending_interrupts = ie & _if & 0x1F;
 
-        if pending_interrupts != 0 {
-        }
-
-        if !self.ime || pending_interrupts == 0 {
+        if pending_interrupts == 0 {
             return;
         }
+        self.tick();
+        self.tick();
 
         self.ime = false;
         self.ei_delay = 0;
@@ -94,7 +115,7 @@ impl<B: Bus> Cpu<B> {
         };
 
         let updated_if = _if & !(1 << bit_index);
-        self.bus.write(IF_ADDR, updated_if);
+        self.write(IF_ADDR, updated_if);
 
         self.push(self.regs.pc);
         self.regs.pc = target_pc;
@@ -122,13 +143,13 @@ impl<B: Bus> Cpu<B> {
                 let addr = self
                     .regs
                     .get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
-                self.bus.write(addr, v);
+                self.write(addr, v);
             }
             op if (op & 0b11001111 == 0b00001010) => {
                 let addr = self
                     .regs
                     .get16mem(helpers::reg16mem_from_index(op >> 4 & 0b11));
-                let v = self.bus.read(addr);
+                let v = self.read(addr);
                 self.regs.set8(crate::cpu::registers::Reg8::A, v);
             }
             0x80..=0x9F => {
@@ -190,23 +211,26 @@ impl<B: Bus> Cpu<B> {
             0x08 => {
                 let addr = self.fetch_byte16();
                 let v = self.regs.sp;
-                self.bus.write(addr, v as u8);
-                self.bus.write(addr + 1, (v >> 8) as u8);
+                self.write(addr, v as u8);
+                self.write(addr + 1, (v >> 8) as u8);
             }
             op if (op & 0b11001111 == 0b00000011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let (v, _) = self.regs.get16(&r).overflowing_add(1);
                 self.regs.set16(r, v);
+                self.tick();
             }
             op if (op & 0b11001111 == 0b00001011) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let (v, _) = self.regs.get16(&r).overflowing_sub(1);
                 self.regs.set16(r, v);
+                self.tick();
             }
             op if (op & 0b11001111 == 0b00001001) => {
                 let r = helpers::reg16_from_index((op >> 4) & 0b11);
                 let v = self.regs.get16(&r);
                 self.regs.add_hl(v);
+                self.tick();
             }
             op if (op & 0b11000111 == 0b00000100) => {
                 let dst = helpers::operand8_from_index((op >> 3) & 0b111);
@@ -229,14 +253,19 @@ impl<B: Bus> Cpu<B> {
             0x18 => {
                 let offset = self.fetch_byte() as i8;
                 self.regs.pc = self.regs.pc.wrapping_add_signed(offset as i16);
+                self.tick();
             }
             op if (op & 0b11100111 == 0b00100000) => {
                 let offset = self.fetch_byte() as i8;
                 let c = helpers::cond_from_index((op >> 3) & 0b11);
-                self.regs.jr(offset, c);
+                if self.regs.get_condition(c) {
+                    self.regs.jr(offset);
+                    self.tick();
+                }
             }
             op if (op & 0b11100111 == 0b11000000) => {
                 let c = helpers::cond_from_index((op >> 3) & 0b11);
+                self.tick();
                 if self.regs.get_condition(c) {
                     self.ret();
                 }
@@ -267,43 +296,46 @@ impl<B: Bus> Cpu<B> {
                 if push {
                     let v = self.regs.get16stk(&r);
                     self.push(v);
+                    self.tick();
                 } else {
                     let v = self.pop();
                     self.regs.set16stk(r, v);
                 }
+                // self.tick();
             }
             0xCD => self.call(None),
             op if (op & 0b1100_0111) == 0b1100_0111 => {
                 let tgt = ((op >> 3) & 0b111) as u16 * 8;
                 self.call_addr(tgt);
+                self.tick();
             }
             0xE2 => {
                 let a = self.regs.get8(Reg8::A);
-                self.bus.write(0xFF00 + self.regs.get8(Reg8::C) as u16, a);
+                self.write(0xFF00 + self.regs.get8(Reg8::C) as u16, a);
             }
             0xE0 => {
                 let n = self.fetch_byte();
                 let a = self.regs.get8(Reg8::A);
-                self.bus.write(0xFF00 + n as u16, a);
+                self.write(0xFF00 + n as u16, a);
             }
             0xEA => {
                 let addr = self.fetch_byte16();
                 let a = self.regs.get8(Reg8::A);
-                self.bus.write(addr, a);
+                self.write(addr, a);
             }
 
             0xF2 => {
-                let v = self.bus.read(0xFF00 + self.regs.get8(Reg8::C) as u16);
+                let v = self.read(0xFF00 + self.regs.get8(Reg8::C) as u16);
                 self.regs.set8(Reg8::A, v);
             }
             0xF0 => {
                 let n = self.fetch_byte();
-                let v = self.bus.read(0xFF00 + n as u16);
+                let v = self.read(0xFF00 + n as u16);
                 self.regs.set8(Reg8::A, v);
             }
             0xFA => {
                 let addr = self.fetch_byte16();
-                let v = self.bus.read(addr);
+                let v = self.read(addr);
                 self.regs.set8(Reg8::A, v);
             }
             0xE8 => {
@@ -314,11 +346,13 @@ impl<B: Bus> Cpu<B> {
                 let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
                 let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
 
+                self.tick();
                 self.regs.sp = result;
                 self.regs.f.set_z(false);
                 self.regs.f.set_n(false);
                 self.regs.f.set_h(half_carry);
                 self.regs.f.set_c(carry);
+                self.tick();
             }
 
             0xF8 => {
@@ -329,6 +363,7 @@ impl<B: Bus> Cpu<B> {
                 let half_carry = (sp & 0xF) + (n & 0xF) > 0xF;
                 let carry = (sp & 0xFF) + (n & 0xFF) > 0xFF;
 
+                self.tick();
                 self.regs.set16(Reg16::HL, result);
                 self.regs.f.set_z(false);
                 self.regs.f.set_n(false);
@@ -337,6 +372,7 @@ impl<B: Bus> Cpu<B> {
             }
             0xF9 => {
                 self.regs.sp = self.regs.hl();
+                self.tick();
             }
             0xF3 => {
                 self.ime = false;
@@ -356,10 +392,10 @@ impl<B: Bus> Cpu<B> {
     fn log(&mut self) {
         if let Some(ref mut writer) = self.doctor_log {
             let pc = self.regs.pc;
-            let m0 = self.bus.read(pc);
-            let m1 = self.bus.read(pc.wrapping_add(1));
-            let m2 = self.bus.read(pc.wrapping_add(2));
-            let m3 = self.bus.read(pc.wrapping_add(3));
+            let m0 = self.bus.peek(pc);
+            let m1 = self.bus.peek(pc.wrapping_add(1));
+            let m2 = self.bus.peek(pc.wrapping_add(2));
+            let m3 = self.bus.peek(pc.wrapping_add(3));
 
             let log_line = format!(
                 "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
@@ -488,14 +524,14 @@ impl<B: Bus> Cpu<B> {
     fn write_operand8(&mut self, dst: Operand8, v: u8) {
         match dst {
             Operand8::Reg(r) => self.regs.set8(r, v),
-            Operand8::MemHL => self.bus.write(self.regs.hl(), v),
+            Operand8::MemHL => self.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!("Cannot write to immediate value D8"),
         }
     }
     fn pop(&mut self) -> u16 {
-        let lo = self.bus.read(self.regs.sp) as u16;
+        let lo = self.read(self.regs.sp) as u16;
         self.regs.sp = self.regs.sp.wrapping_add(1);
-        let hi = self.bus.read(self.regs.sp) as u16;
+        let hi = self.read(self.regs.sp) as u16;
         self.regs.sp = self.regs.sp.wrapping_add(1);
         (hi << 8) | lo
     }
@@ -504,21 +540,21 @@ impl<B: Bus> Cpu<B> {
         let hi = (value >> 8) as u8;
         let lo = (value & 0xFF) as u8;
         self.regs.sp = self.regs.sp.wrapping_sub(1);
-        self.bus.write(self.regs.sp, hi);
+        self.write(self.regs.sp, hi);
         self.regs.sp = self.regs.sp.wrapping_sub(1);
-        self.bus.write(self.regs.sp, lo);
+        self.write(self.regs.sp, lo);
     }
 
     fn ld(&mut self, dst: Operand8, src: Operand8) {
         let v = match src {
             Operand8::Reg(r) => self.regs.get8(r),
-            Operand8::MemHL => self.bus.read(self.regs.hl()),
+            Operand8::MemHL => self.read(self.regs.hl()),
             Operand8::D8(v) => v,
         };
 
         match dst {
             Operand8::Reg(r) => self.regs.set8(r, v),
-            Operand8::MemHL => self.bus.write(self.regs.hl(), v),
+            Operand8::MemHL => self.write(self.regs.hl(), v),
             Operand8::D8(_) => panic!(),
         };
     }
@@ -529,7 +565,7 @@ impl<B: Bus> Cpu<B> {
 
         match dst {
             Operand8::Reg(r) => self.regs.set8(r, result),
-            Operand8::MemHL => self.bus.write(self.regs.hl(), result),
+            Operand8::MemHL => self.write(self.regs.hl(), result),
             Operand8::D8(_) => panic!(),
         }
 
@@ -544,7 +580,7 @@ impl<B: Bus> Cpu<B> {
 
         match dst {
             Operand8::Reg(r) => self.regs.set8(r, result),
-            Operand8::MemHL => self.bus.write(self.regs.hl(), result),
+            Operand8::MemHL => self.write(self.regs.hl(), result),
             Operand8::D8(_) => panic!(),
         }
 
@@ -555,6 +591,7 @@ impl<B: Bus> Cpu<B> {
 
     fn ret(&mut self) {
         self.regs.pc = self.pop();
+        self.tick();
     }
 
     fn jmp(&mut self, condition: Option<Condition>) {
@@ -562,6 +599,7 @@ impl<B: Bus> Cpu<B> {
 
         if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
             self.regs.pc = addr;
+            self.tick();
         }
     }
 
@@ -571,6 +609,7 @@ impl<B: Bus> Cpu<B> {
         if condition.map_or(true, |cond| self.regs.get_condition(cond)) {
             self.push(self.regs.pc);
             self.regs.pc = addr;
+            self.tick();
         }
     }
 
@@ -582,7 +621,7 @@ impl<B: Bus> Cpu<B> {
     fn read_operand8_index(&mut self, idx: u8) -> u8 {
         match helpers::operand8_from_index(idx) {
             Operand8::Reg(r) => self.regs.get8(r),
-            Operand8::MemHL => self.bus.read(self.regs.hl()),
+            Operand8::MemHL => self.read(self.regs.hl()),
             Operand8::D8(v) => v,
         }
     }

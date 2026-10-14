@@ -1,6 +1,10 @@
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, value: u8);
+
+    fn peek(&self, addr: u16) -> u8 {
+        self.read(addr)
+    }
 }
 
 #[cfg(test)]
