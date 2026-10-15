@@ -8,7 +8,9 @@ pub trait Bus {
         self.read(addr)
     }
 
-    fn tick(&mut self) {}
+    fn tick_timers(&mut self, t_cycles: u32) {
+        let _ = t_cycles;
+    }
 }
 
 pub struct MemoryMap {
@@ -67,6 +69,7 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.read(addr - 0x2000),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
             0xFEA0..=0xFEFF => 0xFF,
+            0xFF04..=0xFF07 => self.timer.get_timer(addr),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
             0xFFFF => self.ie,
@@ -87,10 +90,15 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.write(addr - 0x2000, value),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = value,
             0xFEA0..=0xFEFF => {}
+            0xFF04..=0xFF07 => self.timer.set_timer(addr, value),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
             0xFFFF => self.ie = value,
         }
+    }
+
+    fn tick_timers(&mut self, t_cycles: u32) {
+        self.timer.tick(t_cycles);
     }
 }
 

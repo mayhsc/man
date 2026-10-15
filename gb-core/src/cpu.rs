@@ -50,6 +50,7 @@ impl<B: Bus> Cpu<B> {
     pub fn step(&mut self) -> u32 {
         self.m_cycles = 0;
         self.execute(self.opcode);
+        self.bus.tick_timers(self.m_cycles * 4);
         self.log();
         self.handle_interrupt();
         if self.ei_delay > 0 {
