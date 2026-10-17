@@ -1,4 +1,4 @@
-use crate::timer::Timer;
+use crate::{IF_ADDR, timer::Timer};
 
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
@@ -98,7 +98,10 @@ impl Bus for MemoryMap {
     }
 
     fn tick_timers(&mut self, t_cycles: u32) {
-        self.timer.tick(t_cycles);
+        if self.timer.tick(t_cycles) {
+            let _if = self.read(IF_ADDR) | 1 << 2;
+            self.write(IF_ADDR, _if);
+        }
     }
 }
 

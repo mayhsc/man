@@ -3,6 +3,7 @@ pub mod helpers;
 pub mod registers;
 
 use crate::{
+    IE_ADDR, IF_ADDR,
     bus::Bus,
     cpu::{
         flags::Condition,
@@ -12,9 +13,6 @@ use crate::{
 
 use std::fs::File;
 use std::io::{BufWriter, Write};
-
-const IE_ADDR: u16 = 0xFFFF;
-const IF_ADDR: u16 = 0xFF0F;
 
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
@@ -50,7 +48,6 @@ impl<B: Bus> Cpu<B> {
     pub fn step(&mut self) -> u32 {
         self.m_cycles = 0;
         self.execute(self.opcode);
-        self.bus.tick_timers(self.m_cycles * 4);
         self.log();
         self.handle_interrupt();
         if self.ei_delay > 0 {
@@ -65,16 +62,20 @@ impl<B: Bus> Cpu<B> {
 
     pub fn read(&mut self, addr: u16) -> u8 {
         self.m_cycles += 1;
+        self.bus.tick_timers(4);
         self.bus.read(addr)
     }
 
     pub fn write(&mut self, addr: u16, value: u8) {
         self.m_cycles += 1;
+        self.bus.tick_timers(4);
+
         self.bus.write(addr, value);
     }
 
     pub fn tick(&mut self) {
-        self.m_cycles += 1
+        self.m_cycles += 1;
+        self.bus.tick_timers(4);
     }
 
     fn fetch_byte(&mut self) -> u8 {
@@ -399,7 +400,7 @@ impl<B: Bus> Cpu<B> {
             let m3 = self.bus.peek(pc.wrapping_add(3));
 
             let log_line = format!(
-                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X} IF:{:02x}\n",
                 self.regs.a,
                 self.regs.f.as_u8(),
                 self.regs.b,
@@ -413,7 +414,8 @@ impl<B: Bus> Cpu<B> {
                 m0,
                 m1,
                 m2,
-                m3
+                m3,
+                self.bus.peek(IF_ADDR)
             );
 
             let _ = writer.write_all(log_line.as_bytes());
