@@ -21,6 +21,7 @@ pub struct Cpu<B: Bus> {
     ime: bool,
     ei_delay: u8,
     m_cycles: u32,
+    halted: bool,
     // Logging for gameboy doctor
     doctor_log: Option<BufWriter<File>>,
 }
@@ -39,6 +40,7 @@ impl<B: Bus> Cpu<B> {
             ime: false,
             ei_delay: 0,
             m_cycles: 0,
+            halted: false,
             doctor_log: Some(writer),
         };
         cpu.opcode = cpu.fetch_byte();
@@ -47,6 +49,15 @@ impl<B: Bus> Cpu<B> {
 
     pub fn step(&mut self) -> u32 {
         self.m_cycles = 0;
+        if self.halted {
+            self.tick();
+            if self.pending_interrupts() != 0 {
+                self.halted = false;
+            }
+            self.handle_interrupt();
+            return self.m_cycles;
+        }
+
         self.execute(self.opcode);
         self.log();
         self.handle_interrupt();
@@ -93,14 +104,12 @@ impl<B: Bus> Cpu<B> {
             return;
         }
 
-        let ie = self.bus.peek(IE_ADDR);
         let _if = self.bus.peek(IF_ADDR);
-
-        let pending_interrupts = ie & _if & 0x1F;
-
+        let pending_interrupts = self.pending_interrupts();
         if pending_interrupts == 0 {
             return;
         }
+
         self.tick();
         self.tick();
 
@@ -121,6 +130,13 @@ impl<B: Bus> Cpu<B> {
 
         self.push(self.regs.pc);
         self.regs.pc = target_pc;
+    }
+
+    fn pending_interrupts(&self) -> u8 {
+        let ie = self.bus.peek(IE_ADDR);
+        let _if = self.bus.peek(IF_ADDR);
+
+        ie & _if & 0x1F
     }
 
     fn execute(&mut self, op: u8) {
@@ -629,7 +645,9 @@ impl<B: Bus> Cpu<B> {
         }
     }
 
-    fn halt(&self) {}
+    fn halt(&mut self) {
+        self.halted = true;
+    }
 
     #[cfg(test)]
     pub fn set_opcode(&mut self, op: u8) {
