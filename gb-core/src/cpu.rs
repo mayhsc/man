@@ -22,6 +22,7 @@ pub struct Cpu<B: Bus> {
     ei_delay: u8,
     m_cycles: u32,
     halted: bool,
+    halt_bug: bool,
     // Logging for gameboy doctor
     doctor_log: Option<BufWriter<File>>,
 }
@@ -41,6 +42,7 @@ impl<B: Bus> Cpu<B> {
             ei_delay: 0,
             m_cycles: 0,
             halted: false,
+            halt_bug: false,
             doctor_log: Some(writer),
         };
         cpu.opcode = cpu.fetch_byte();
@@ -51,6 +53,7 @@ impl<B: Bus> Cpu<B> {
         self.m_cycles = 0;
         if self.halted {
             self.tick();
+
             if self.pending_interrupts() != 0 {
                 self.halted = false;
             }
@@ -61,6 +64,7 @@ impl<B: Bus> Cpu<B> {
         self.execute(self.opcode);
         self.log();
         self.handle_interrupt();
+
         if self.ei_delay > 0 {
             self.ei_delay -= 1;
             if self.ei_delay == 0 {
@@ -91,10 +95,13 @@ impl<B: Bus> Cpu<B> {
 
     fn fetch_byte(&mut self) -> u8 {
         let b = self.read(self.regs.pc);
-        self.regs.increment();
+        if self.halt_bug {
+            self.halt_bug = false;
+        } else {
+            self.regs.increment();
+        }
         b
     }
-
     fn fetch_byte16(&mut self) -> u16 {
         (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8)
     }
@@ -646,7 +653,11 @@ impl<B: Bus> Cpu<B> {
     }
 
     fn halt(&mut self) {
-        self.halted = true;
+        if !self.ime && self.pending_interrupts() != 0 {
+            self.halt_bug = true;
+        } else {
+            self.halted = true;
+        }
     }
 
     #[cfg(test)]
