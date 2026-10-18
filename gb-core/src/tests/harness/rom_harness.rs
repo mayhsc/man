@@ -7,7 +7,7 @@ use crate::{
 
 fn load(name: &str) -> Cpu<MemoryMap> {
     let path = format!(
-        "{}/tests/roms/cpu_instr/{name}.gb",
+        "{}/tests/roms/{name}.gb",
         env!("CARGO_MANIFEST_DIR")
     );
 
@@ -43,7 +43,7 @@ fn run_test(cpu: &mut Cpu<MemoryMap>, max_steps: u64) -> String {
 
 pub fn run_file(name: &str) {
     let mut cpu = load(name);
-    let output = run_test(&mut cpu, 500_00_000);
+    let output = run_test(&mut cpu, 50_000_000);
 
     assert!(
         output.contains("Passed"),

@@ -1,3 +1,5 @@
+use crate::{IF_ADDR, timer::Timer};
+
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, value: u8);
@@ -5,28 +7,9 @@ pub trait Bus {
     fn peek(&self, addr: u16) -> u8 {
         self.read(addr)
     }
-}
 
-#[cfg(test)]
-pub struct FlatBus {
-    pub memory: [u8; 0x10000],
-}
-
-#[cfg(test)]
-impl Default for FlatBus {
-    fn default() -> Self {
-        Self { memory: [0; 65536] }
-    }
-}
-
-#[cfg(test)]
-impl Bus for FlatBus {
-    fn read(&self, addr: u16) -> u8 {
-        self.memory[addr as usize]
-    }
-
-    fn write(&mut self, addr: u16, value: u8) {
-        self.memory[addr as usize] = value;
+    fn tick_timers(&mut self, t_cycles: u32) {
+        let _ = t_cycles;
     }
 }
 
@@ -44,6 +27,8 @@ pub struct MemoryMap {
     io_regs: [u8; 0x0080],
     hram: [u8; 0x007F],
     ie: u8,
+
+    timer: Timer,
 }
 
 impl Default for MemoryMap {
@@ -62,6 +47,7 @@ impl Default for MemoryMap {
             io_regs: [0; 0x0080],
             hram: [0; 0x007F],
             ie: 0,
+            timer: Timer::new(),
         }
     }
 }
@@ -83,6 +69,7 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.read(addr - 0x2000),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
             0xFEA0..=0xFEFF => 0xFF,
+            0xFF04..=0xFF07 => self.timer.get_timer(addr),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
             0xFFFF => self.ie,
@@ -103,9 +90,17 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.write(addr - 0x2000, value),
             0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = value,
             0xFEA0..=0xFEFF => {}
+            0xFF04..=0xFF07 => self.timer.set_timer(addr, value),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
             0xFFFF => self.ie = value,
+        }
+    }
+
+    fn tick_timers(&mut self, t_cycles: u32) {
+        if self.timer.tick(t_cycles) {
+            let _if = self.read(IF_ADDR) | 1 << 2;
+            self.write(IF_ADDR, _if);
         }
     }
 }

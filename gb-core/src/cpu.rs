@@ -3,6 +3,7 @@ pub mod helpers;
 pub mod registers;
 
 use crate::{
+    IE_ADDR, IF_ADDR,
     bus::Bus,
     cpu::{
         flags::Condition,
@@ -13,9 +14,6 @@ use crate::{
 use std::fs::File;
 use std::io::{BufWriter, Write};
 
-const IE_ADDR: u16 = 0xFFFF;
-const IF_ADDR: u16 = 0xFF0F;
-
 pub struct Cpu<B: Bus> {
     pub(crate) regs: Registers,
     pub(crate) bus: B,
@@ -23,6 +21,8 @@ pub struct Cpu<B: Bus> {
     ime: bool,
     ei_delay: u8,
     m_cycles: u32,
+    halted: bool,
+    halt_bug: bool,
     // Logging for gameboy doctor
     doctor_log: Option<BufWriter<File>>,
 }
@@ -41,6 +41,8 @@ impl<B: Bus> Cpu<B> {
             ime: false,
             ei_delay: 0,
             m_cycles: 0,
+            halted: false,
+            halt_bug: false,
             doctor_log: Some(writer),
         };
         cpu.opcode = cpu.fetch_byte();
@@ -49,9 +51,20 @@ impl<B: Bus> Cpu<B> {
 
     pub fn step(&mut self) -> u32 {
         self.m_cycles = 0;
+        if self.halted {
+            self.tick();
+
+            if self.pending_interrupts() != 0 {
+                self.halted = false;
+            }
+            self.handle_interrupt();
+            return self.m_cycles;
+        }
+
         self.execute(self.opcode);
         self.log();
         self.handle_interrupt();
+
         if self.ei_delay > 0 {
             self.ei_delay -= 1;
             if self.ei_delay == 0 {
@@ -64,24 +77,31 @@ impl<B: Bus> Cpu<B> {
 
     pub fn read(&mut self, addr: u16) -> u8 {
         self.m_cycles += 1;
+        self.bus.tick_timers(4);
         self.bus.read(addr)
     }
 
     pub fn write(&mut self, addr: u16, value: u8) {
         self.m_cycles += 1;
+        self.bus.tick_timers(4);
+
         self.bus.write(addr, value);
     }
 
     pub fn tick(&mut self) {
-        self.m_cycles += 1
+        self.m_cycles += 1;
+        self.bus.tick_timers(4);
     }
 
     fn fetch_byte(&mut self) -> u8 {
         let b = self.read(self.regs.pc);
-        self.regs.increment();
+        if self.halt_bug {
+            self.halt_bug = false;
+        } else {
+            self.regs.increment();
+        }
         b
     }
-
     fn fetch_byte16(&mut self) -> u16 {
         (self.fetch_byte() as u16) | ((self.fetch_byte() as u16) << 8)
     }
@@ -91,14 +111,12 @@ impl<B: Bus> Cpu<B> {
             return;
         }
 
-        let ie = self.bus.peek(IE_ADDR);
         let _if = self.bus.peek(IF_ADDR);
-
-        let pending_interrupts = ie & _if & 0x1F;
-
+        let pending_interrupts = self.pending_interrupts();
         if pending_interrupts == 0 {
             return;
         }
+
         self.tick();
         self.tick();
 
@@ -119,6 +137,13 @@ impl<B: Bus> Cpu<B> {
 
         self.push(self.regs.pc);
         self.regs.pc = target_pc;
+    }
+
+    fn pending_interrupts(&self) -> u8 {
+        let ie = self.bus.peek(IE_ADDR);
+        let _if = self.bus.peek(IF_ADDR);
+
+        ie & _if & 0x1F
     }
 
     fn execute(&mut self, op: u8) {
@@ -398,7 +423,7 @@ impl<B: Bus> Cpu<B> {
             let m3 = self.bus.peek(pc.wrapping_add(3));
 
             let log_line = format!(
-                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X}\n",
+                "A:{:02X} F:{:02X} B:{:02X} C:{:02X} D:{:02X} E:{:02X} H:{:02X} L:{:02X} SP:{:04X} PC:{:04X} PCMEM:{:02X},{:02X},{:02X},{:02X} IF:{:02x}\n",
                 self.regs.a,
                 self.regs.f.as_u8(),
                 self.regs.b,
@@ -412,7 +437,8 @@ impl<B: Bus> Cpu<B> {
                 m0,
                 m1,
                 m2,
-                m3
+                m3,
+                self.bus.peek(IF_ADDR)
             );
 
             let _ = writer.write_all(log_line.as_bytes());
@@ -626,7 +652,13 @@ impl<B: Bus> Cpu<B> {
         }
     }
 
-    fn halt(&self) {}
+    fn halt(&mut self) {
+        if !self.ime && self.pending_interrupts() != 0 {
+            self.halt_bug = true;
+        } else {
+            self.halted = true;
+        }
+    }
 
     #[cfg(test)]
     pub fn set_opcode(&mut self, op: u8) {
