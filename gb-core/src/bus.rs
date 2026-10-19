@@ -87,7 +87,7 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.write(addr - 0x2000, value),
             0xFEA0..=0xFEFF => {}
             0xFF04..=0xFF07 => self.timer.set_timer(addr, value),
-            0xFF46 => {}, 
+            0xFF46 => {}
             0x8000..=0x9FFF | 0xFE00..=0xFE9F | 0xFF40..=0xFF4B => self.ppu.write(addr, value),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
@@ -96,9 +96,11 @@ impl Bus for MemoryMap {
     }
 
     fn tick_timers(&mut self, t_cycles: u32) {
-        if self.timer.tick(t_cycles) {
-            let _if = self.read(IF_ADDR) | 1 << 2;
-            self.write(IF_ADDR, _if);
+        for _ in 0..t_cycles {
+            if self.timer.tick() {
+                let _if = self.read(IF_ADDR) | 1 << 2;
+                self.write(IF_ADDR, _if);
+            }
         }
     }
 }

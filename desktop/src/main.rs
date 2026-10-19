@@ -22,7 +22,6 @@ fn main() {
     let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let color_offset = 0;
 
     let mut canvas = create_canvas(&video_subsystem);
 
@@ -35,7 +34,7 @@ fn main() {
     let mut cpu = Cpu::new(bus);
 
     'gameloop: loop {
-        canvas.set_draw_color(Color::RGB(color_offset, 64, 255 - color_offset));
+        canvas.set_draw_color(Color::RGB(255, 255, 255));
         canvas.clear();
 
         for event in event_pump.poll_iter() {

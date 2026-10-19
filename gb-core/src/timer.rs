@@ -23,31 +23,29 @@ impl Timer {
         Timer::default()
     }
 
-    pub fn tick(&mut self, t_cycles: u32) -> bool {
+    pub fn tick(&mut self) -> bool {
         let mut request_interrupt = false;
-        for _ in 0..t_cycles {
-            let old = signal(self.div, self.tac);
-            self.div = self.div.wrapping_add(1);
+        let old = signal(self.div, self.tac);
+        self.div = self.div.wrapping_add(1);
 
-            match self.overflow_cycles_left {
-                Some(v) => {
-                    if v == 1 {
-                        self.tima = self.tma;
-                        request_interrupt = true;
-                        self.overflow_cycles_left = None;
-                    } else {
-                        self.overflow_cycles_left = Some(v - 1);
-                    }
+        match self.overflow_cycles_left {
+            Some(v) => {
+                if v == 1 {
+                    self.tima = self.tma;
+                    request_interrupt = true;
+                    self.overflow_cycles_left = None;
+                } else {
+                    self.overflow_cycles_left = Some(v - 1);
                 }
-                None => {}
             }
+            None => {}
+        }
 
-            if old && !signal(self.div, self.tac) {
-                let (r, overflow) = self.tima.overflowing_add(1);
-                self.tima = r;
-                if overflow {
-                    self.overflow_cycles_left = Some(4)
-                }
+        if old && !signal(self.div, self.tac) {
+            let (r, overflow) = self.tima.overflowing_add(1);
+            self.tima = r;
+            if overflow {
+                self.overflow_cycles_left = Some(4)
             }
         }
         request_interrupt

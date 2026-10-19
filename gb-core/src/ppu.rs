@@ -85,4 +85,8 @@ impl Ppu {
             _ => {} 
         }
     }
+
+    pub fn tick(&self) {
+        
+    }
 }
