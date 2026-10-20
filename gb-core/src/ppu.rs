@@ -17,6 +17,8 @@ pub struct Ppu {
     wy: u8,
     wx: u8,
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
+    // Temp
+    init: bool,
 }
 
 impl Default for Ppu {
@@ -37,6 +39,7 @@ impl Default for Ppu {
             wy: 0,
             wx: 0,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
+            init: false,
         }
     }
 }
@@ -92,9 +95,12 @@ impl Ppu {
     }
 
     pub fn tick(&mut self) {
-        Ppu::fill_test_vram(&mut self.vram);
+        if !self.init {
+            Ppu::fill_test_vram(&mut self.vram);
+            self.init = true
+        }
         self.update_frame_buffer();
-        self.scx = self.scx.wrapping_add(10)
+        self.scx = self.scx.wrapping_add(1)
     }
 
     fn update_frame_buffer(&mut self) {

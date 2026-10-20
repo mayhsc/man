@@ -4,20 +4,19 @@ use std::io::Read;
 
 use gb_core::bus::MemoryMap;
 use gb_core::cpu::Cpu;
-use sdl3::sys::render::SDL_SetTextureScaleMode;
-use sdl3::sys::surface::SDL_SCALEMODE_NEAREST;
 use sdl3::{
     VideoSubsystem,
     event::Event,
     keyboard::Keycode,
     pixels::{Color, PixelFormat},
     render::{Canvas, Texture},
+    sys::{render::SDL_SetTextureScaleMode, surface::SDL_SCALEMODE_NEAREST},
     video::Window,
 };
 
 const RESOLUTION_X: u32 = 160;
 const RESOLUTION_Y: u32 = 144;
-const SCALE: u32 = 10;
+const SCALE: u32 = 5;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -46,10 +45,10 @@ fn main() {
         .unwrap();
     unsafe {
         SDL_SetTextureScaleMode(texture.raw(), SDL_SCALEMODE_NEAREST);
+        sdl3::sys::render::SDL_SetRenderVSync(texture_creator.raw(), 1);
     }
 
     let mut rgba = vec![0u8; (RESOLUTION_X * RESOLUTION_Y * 4) as usize];
-    to_rgba(cpu.frame_buffer(), &mut rgba);
 
     'gameloop: loop {
         canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -68,6 +67,8 @@ fn main() {
         }
 
         cpu.step();
+        to_rgba(cpu.frame_buffer(), &mut rgba);
+
         draw_screen(&mut canvas, &mut texture, &rgba);
 
         canvas.present();
