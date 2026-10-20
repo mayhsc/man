@@ -4,13 +4,14 @@ use std::io::Read;
 
 use gb_core::bus::MemoryMap;
 use gb_core::cpu::Cpu;
+use sdl3::sys::render::SDL_SetTextureScaleMode;
+use sdl3::sys::surface::SDL_SCALEMODE_NEAREST;
 use sdl3::{
     VideoSubsystem,
     event::Event,
     keyboard::Keycode,
     pixels::{Color, PixelFormat},
-    render::Canvas,
-    render::Texture,
+    render::{Canvas, Texture},
     video::Window,
 };
 
@@ -43,12 +44,15 @@ fn main() {
     let mut texture = texture_creator
         .create_texture_streaming(PixelFormat::RGBA32, RESOLUTION_X, RESOLUTION_Y)
         .unwrap();
+    unsafe {
+        SDL_SetTextureScaleMode(texture.raw(), SDL_SCALEMODE_NEAREST);
+    }
 
     let mut rgba = vec![0u8; (RESOLUTION_X * RESOLUTION_Y * 4) as usize];
     to_rgba(cpu.frame_buffer(), &mut rgba);
 
     'gameloop: loop {
-        canvas.set_draw_color(Color::RGB(255, 255, 255));
+        canvas.set_draw_color(Color::RGB(0, 0, 0));
 
         for event in event_pump.poll_iter() {
             match event {
@@ -75,17 +79,19 @@ fn create_canvas(video_subsystem: &VideoSubsystem) -> Canvas<Window> {
     const WINDOW_HEIGHT: u32 = (RESOLUTION_Y as u32) * SCALE;
 
     let window = video_subsystem
-        .window(
-            "MAN",
-            WINDOW_WIDTH / SCALE as u32,
-            WINDOW_HEIGHT / SCALE as u32,
-        )
+        .window("MAN", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
+        // .resizable()
         .build()
         .unwrap();
 
     let canvas = window.into_canvas();
+    // canvas.set_logical_size(
+    //     RESOLUTION_X,
+    //     RESOLUTION_Y,
+    //     SDL_RendererLogicalPresentation::INTEGER_SCALE,
+    // );
 
     canvas
 }
