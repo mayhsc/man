@@ -16,7 +16,7 @@ pub struct Ppu {
     obp1: u8,
     wy: u8,
     wx: u8,
-    framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y * 4) as usize],
+    framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
 }
 
 impl Default for Ppu {
@@ -31,12 +31,12 @@ impl Default for Ppu {
             ly: 0,
             lyc: 0,
             dma: 0,
-            bgp: 0xFC,
+            bgp: 0xE4,
             obp0: 0xFF,
             obp1: 0xFF,
             wy: 0,
             wx: 0,
-            framebuffer: [0; RESOLUTION_X * RESOLUTION_Y * 4],
+            framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
         }
     }
 }
@@ -93,20 +93,43 @@ impl Ppu {
 
     pub fn tick(&mut self) {
         Ppu::fill_test_vram(&mut self.vram);
-        self.populate_frame_buffer();
+        self.update_frame_buffer();
+        self.scx = self.scx.wrapping_add(10)
     }
 
-    fn populate_frame_buffer(&mut self) {
-        
-    }
+    fn update_frame_buffer(&mut self) {
+        let data_base: i32 = if is_bit_set(self.lcdc, 4) {
+            0x8000
+        } else {
+            0x9000
+        };
+        let signed = !is_bit_set(self.lcdc, 4);
+        let map_base: usize = if is_bit_set(self.lcdc, 3) {
+            0x9C00
+        } else {
+            0x9800
+        };
 
-    fn set_pixel(&mut self, x: usize, y: usize, r: u8, g: u8, b: u8) {
-        if x < RESOLUTION_X && y < RESOLUTION_Y {
-            let index = (y * RESOLUTION_X + x) * 4;
-            self.framebuffer[index] = r; // Red
-            self.framebuffer[index + 1] = g; // Green
-            self.framebuffer[index + 2] = b; // Blue
-            self.framebuffer[index + 3] = 0xFF; // Alpha (fully opaque)
+        for y in 0..144 {
+            for x in 0..160 {
+                let bx = (x + self.scx as usize) & 0xFF;
+                let by = (y + self.scy as usize) & 0xFF;
+
+                let tile_index = self.vram[map_base + (by / 8) * 32 + (bx / 8) - 0x8000];
+                let tile_addr = if signed {
+                    data_base + (tile_index as i8 as i32) * 16
+                } else {
+                    data_base + (tile_index as i32) * 16
+                } as usize;
+
+                let row = by % 8;
+                let lo = self.vram[tile_addr + row * 2 - 0x8000];
+                let hi = self.vram[tile_addr + row * 2 + 1 - 0x8000];
+
+                let bit = 7 - (bx % 8);
+                let color_index = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
+                self.framebuffer[y * 160 + x] = (self.bgp >> (color_index * 2)) & 0b11;
+            }
         }
     }
 
@@ -114,21 +137,53 @@ impl Ppu {
         &self.framebuffer
     }
 
+    fn set_tile(vram: &mut [u8], tile: usize, rows: [(u8, u8); 8]) {
+        for (r, (lo, hi)) in rows.iter().enumerate() {
+            vram[tile * 16 + r * 2] = *lo;
+            vram[tile * 16 + r * 2 + 1] = *hi;
+        }
+    }
+
     fn fill_test_vram(vram: &mut [u8]) {
-        for tile in 0..384 {
-            let tile_base = tile * 16;
+        Ppu::set_tile(vram, 0, [(0x00, 0x00); 8]);
+        Ppu::set_tile(vram, 1, [(0xFF, 0x00); 8]);
+        Ppu::set_tile(vram, 2, [(0x00, 0xFF); 8]);
+        Ppu::set_tile(vram, 3, [(0xFF, 0xFF); 8]);
 
-            for row in 0..8 {
-                let pattern = match (tile / 8) % 4 {
-                    0 => 0xFF,     // Solid
-                    1 => 0xAA,     // Alternating pixels
-                    2 => 0xF0,     // Half-width stripes
-                    _ => 1 << row, // Diagonal-ish pattern
+        let mut checker = [(0u8, 0u8); 8];
+        let mut stripes = [(0u8, 0u8); 8];
+        for r in 0..8 {
+            let p = if r % 2 == 0 { 0xAA } else { 0x55 };
+            checker[r] = (p, p);
+            let d = 0x80u8 >> r;
+            stripes[r] = (d, d);
+        }
+        Ppu::set_tile(vram, 4, checker);
+        Ppu::set_tile(vram, 5, stripes);
+
+        let map = &mut vram[0x1800..0x1800 + 32 * 32];
+        for y in 0..32usize {
+            for x in 0..32usize {
+                let on_screen_border = x == 0 || x == 19 || y == 0 || y == 17;
+                map[y * 32 + x] = if on_screen_border {
+                    3
+                } else if y < 9 {
+                    match (x - 1) / 5 {
+                        0 => 0,
+                        1 => 1,
+                        2 => 2,
+                        _ => 3,
+                    }
+                } else if x < 10 {
+                    4
+                } else {
+                    5
                 };
-
-                vram[tile_base + row * 2] = pattern;
-                vram[tile_base + row * 2 + 1] = !pattern;
             }
         }
     }
+}
+
+fn is_bit_set(number: u8, position: u8) -> bool {
+    ((number >> position) & 1) == 1
 }

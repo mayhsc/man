@@ -5,7 +5,13 @@ use std::io::Read;
 use gb_core::bus::MemoryMap;
 use gb_core::cpu::Cpu;
 use sdl3::{
-    VideoSubsystem, event::Event, keyboard::Keycode, pixels::Color, render::Canvas, video::Window,
+    VideoSubsystem,
+    event::Event,
+    keyboard::Keycode,
+    pixels::{Color, PixelFormat},
+    render::Canvas,
+    render::Texture,
+    video::Window,
 };
 
 const RESOLUTION_X: u32 = 160;
@@ -33,9 +39,16 @@ fn main() {
     bus.load(&buffer);
     let mut cpu = Cpu::new(bus);
 
+    let texture_creator = canvas.texture_creator();
+    let mut texture = texture_creator
+        .create_texture_streaming(PixelFormat::RGBA32, RESOLUTION_X, RESOLUTION_Y)
+        .unwrap();
+
+    let mut rgba = vec![0u8; (RESOLUTION_X * RESOLUTION_Y * 4) as usize];
+    to_rgba(cpu.frame_buffer(), &mut rgba);
+
     'gameloop: loop {
         canvas.set_draw_color(Color::RGB(255, 255, 255));
-        canvas.clear();
 
         for event in event_pump.poll_iter() {
             match event {
@@ -51,7 +64,7 @@ fn main() {
         }
 
         cpu.step();
-        // draw_screen(cpu.);
+        draw_screen(&mut canvas, &mut texture, &rgba);
 
         canvas.present();
     }
@@ -62,7 +75,11 @@ fn create_canvas(video_subsystem: &VideoSubsystem) -> Canvas<Window> {
     const WINDOW_HEIGHT: u32 = (RESOLUTION_Y as u32) * SCALE;
 
     let window = video_subsystem
-        .window("MAN", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
+        .window(
+            "MAN",
+            WINDOW_WIDTH / SCALE as u32,
+            WINDOW_HEIGHT / SCALE as u32,
+        )
         .position_centered()
         .opengl()
         .build()
@@ -73,6 +90,24 @@ fn create_canvas(video_subsystem: &VideoSubsystem) -> Canvas<Window> {
     canvas
 }
 
-fn draw_screen(vram: &mut [u8]) {
+fn draw_screen(canvas: &mut Canvas<Window>, texture: &mut Texture<'_>, rgba: &[u8]) {
+    assert_eq!(rgba.len(), (RESOLUTION_X * RESOLUTION_Y * 4) as usize);
+    texture
+        .update(None, rgba, (RESOLUTION_X * 4) as usize)
+        .unwrap();
+    canvas.clear();
+    canvas.copy(texture, None, None).unwrap();
+}
 
+fn to_rgba(shades: &[u8], out: &mut [u8]) {
+    const PALETTE: [[u8; 4]; 4] = [
+        [0x9B, 0xBC, 0x0F, 0xFF],
+        [0x8B, 0xAC, 0x0F, 0xFF],
+        [0x30, 0x62, 0x30, 0xFF],
+        [0x0F, 0x38, 0x0F, 0xFF],
+    ];
+
+    for (i, &s) in shades.iter().enumerate() {
+        out[i * 4..i * 4 + 4].copy_from_slice(&PALETTE[(s & 3) as usize]);
+    }
 }

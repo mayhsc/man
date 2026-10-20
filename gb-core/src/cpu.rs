@@ -667,7 +667,7 @@ impl<B: Bus> Cpu<B> {
 }
 
 impl Cpu<MemoryMap> {
-    fn frame_buffer(&self) -> &[u8] {
+    pub fn frame_buffer(&self) -> &[u8] {
         &self.bus.framebuffer()
     }
 }
