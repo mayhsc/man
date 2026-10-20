@@ -4,7 +4,7 @@ pub mod registers;
 
 use crate::{
     IE_ADDR, IF_ADDR,
-    bus::Bus,
+    bus::{Bus, MemoryMap},
     cpu::{
         flags::Condition,
         registers::{Operand8, Reg8, Reg16, Registers},
@@ -663,5 +663,11 @@ impl<B: Bus> Cpu<B> {
     #[cfg(test)]
     pub fn set_opcode(&mut self, op: u8) {
         self.opcode = op
+    }
+}
+
+impl Cpu<MemoryMap> {
+    fn frame_buffer(&self) -> &[u8] {
+        &self.bus.framebuffer()
     }
 }

@@ -101,6 +101,7 @@ impl Bus for MemoryMap {
                 let _if = self.read(IF_ADDR) | 1 << 2;
                 self.write(IF_ADDR, _if);
             }
+            self.ppu.tick();
         }
     }
 }
@@ -122,5 +123,9 @@ impl MemoryMap {
         if data.len() > 0x8000 {
             todo!();
         }
+    }
+
+    pub fn framebuffer(&self) -> &[u8] {
+        &self.ppu.framebuffer()
     }
 }

@@ -51,6 +51,8 @@ fn main() {
         }
 
         cpu.step();
+        // draw_screen(cpu.);
+
         canvas.present();
     }
 }
@@ -69,4 +71,8 @@ fn create_canvas(video_subsystem: &VideoSubsystem) -> Canvas<Window> {
     let canvas = window.into_canvas();
 
     canvas
+}
+
+fn draw_screen(vram: &mut [u8]) {
+
 }
