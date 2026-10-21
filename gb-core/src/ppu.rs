@@ -1,11 +1,20 @@
 const RESOLUTION_X: usize = 160;
 const RESOLUTION_Y: usize = 144;
 
+enum PpuMode {
+    OamScan,
+    Drawing,
+    HBlank,
+    VBlank,
+}
+
 pub struct Ppu {
     vram: [u8; 0x2000],
     oam: [u8; 0x00A0],
+
     lcdc: u8,
     lcds: u8,
+
     scy: u8,
     scx: u8,
     ly: u8,
@@ -16,9 +25,11 @@ pub struct Ppu {
     obp1: u8,
     wy: u8,
     wx: u8,
+
+    dot: u16,
+
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
-    // Temp
-    init: bool,
+    mode: PpuMode,
 }
 
 impl Default for Ppu {
@@ -38,8 +49,9 @@ impl Default for Ppu {
             obp1: 0xFF,
             wy: 0,
             wx: 0,
+            dot: 0,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
-            init: false,
+            mode: PpuMode::OamScan,
         }
     }
 }
@@ -95,13 +107,21 @@ impl Ppu {
     }
 
     pub fn tick(&mut self) {
-        if !self.init {
-            Ppu::fill_test_vram(&mut self.vram);
-            self.init = true
+        self.dot += 1;
+        let dot = self.dot;
+        match self.mode {
+            PpuMode::OamScan => {
+                if dot % 2 == 0 {}
+                if dot == 80 {}
+            }
+            PpuMode::Drawing => {}
+            PpuMode::HBlank => {}
+            PpuMode::VBlank => {}
         }
         self.update_frame_buffer();
-        self.scx = self.scx.wrapping_add(1)
     }
+
+    pub fn oam_scan(&mut self) {}
 
     fn update_frame_buffer(&mut self) {
         let data_base: i32 = if is_bit_set(self.lcdc, 4) {
@@ -141,52 +161,6 @@ impl Ppu {
 
     pub fn framebuffer(&self) -> &[u8] {
         &self.framebuffer
-    }
-
-    fn set_tile(vram: &mut [u8], tile: usize, rows: [(u8, u8); 8]) {
-        for (r, (lo, hi)) in rows.iter().enumerate() {
-            vram[tile * 16 + r * 2] = *lo;
-            vram[tile * 16 + r * 2 + 1] = *hi;
-        }
-    }
-
-    fn fill_test_vram(vram: &mut [u8]) {
-        Ppu::set_tile(vram, 0, [(0x00, 0x00); 8]);
-        Ppu::set_tile(vram, 1, [(0xFF, 0x00); 8]);
-        Ppu::set_tile(vram, 2, [(0x00, 0xFF); 8]);
-        Ppu::set_tile(vram, 3, [(0xFF, 0xFF); 8]);
-
-        let mut checker = [(0u8, 0u8); 8];
-        let mut stripes = [(0u8, 0u8); 8];
-        for r in 0..8 {
-            let p = if r % 2 == 0 { 0xAA } else { 0x55 };
-            checker[r] = (p, p);
-            let d = 0x80u8 >> r;
-            stripes[r] = (d, d);
-        }
-        Ppu::set_tile(vram, 4, checker);
-        Ppu::set_tile(vram, 5, stripes);
-
-        let map = &mut vram[0x1800..0x1800 + 32 * 32];
-        for y in 0..32usize {
-            for x in 0..32usize {
-                let on_screen_border = x == 0 || x == 19 || y == 0 || y == 17;
-                map[y * 32 + x] = if on_screen_border {
-                    3
-                } else if y < 9 {
-                    match (x - 1) / 5 {
-                        0 => 0,
-                        1 => 1,
-                        2 => 2,
-                        _ => 3,
-                    }
-                } else if x < 10 {
-                    4
-                } else {
-                    5
-                };
-            }
-        }
     }
 }
 
