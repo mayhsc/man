@@ -1,3 +1,8 @@
+mod sprites;
+
+use sprites::Sprite;
+use std::vec;
+
 const RESOLUTION_X: usize = 160;
 const RESOLUTION_Y: usize = 144;
 
@@ -27,9 +32,10 @@ pub struct Ppu {
     wx: u8,
 
     dot: u16,
-
-    framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
     mode: PpuMode,
+
+    oambuffer: Vec<Sprite>,
+    framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
 }
 
 impl Default for Ppu {
@@ -50,8 +56,9 @@ impl Default for Ppu {
             wy: 0,
             wx: 0,
             dot: 0,
-            framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
             mode: PpuMode::OamScan,
+            oambuffer: vec![],
+            framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
         }
     }
 }
@@ -64,7 +71,10 @@ impl Ppu {
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
             0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],
-            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize],
+            0xFE00..=0xFE9F => match self.mode {
+                PpuMode::OamScan => 0xFF,
+                _ => self.oam[(addr - 0xFE00) as usize],
+            },
             0xFF40 => self.lcdc,
             0xFF41 => self.lcds | 0x80,
             0xFF42 => self.scy,
@@ -84,7 +94,10 @@ impl Ppu {
     pub fn write(&mut self, addr: u16, value: u8) {
         match addr {
             0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize] = value,
-            0xFE00..=0xFE9F => self.oam[(addr - 0xFE00) as usize] = value,
+            0xFE00..=0xFE9F => match self.mode {
+                PpuMode::OamScan => {}
+                _ => self.oam[(addr - 0xFE00) as usize] = value,
+            },
             0xFF40 => self.lcdc = value,
             0xFF41 => {
                 self.lcds = (self.lcds & 0x07) | (value & 0x78);
@@ -107,21 +120,44 @@ impl Ppu {
     }
 
     pub fn tick(&mut self) {
-        self.dot += 1;
         let dot = self.dot;
+
         match self.mode {
             PpuMode::OamScan => {
-                if dot % 2 == 0 {}
-                if dot == 80 {}
+                if dot % 2 == 0 {
+                    self.oam_scan();
+                }
+                if dot == 80 {
+                    self.set_ppu_mode(PpuMode::Drawing);
+                }
             }
             PpuMode::Drawing => {}
             PpuMode::HBlank => {}
             PpuMode::VBlank => {}
         }
         self.update_frame_buffer();
+        self.dot += 1;
     }
 
-    pub fn oam_scan(&mut self) {}
+    fn oam_scan(&mut self) {
+        let idx = (self.dot / 2) as usize;
+        let sprite = Sprite::new(
+            self.oam[idx + 1],
+            self.oam[idx],
+            self.oam[idx + 2],
+            self.oam[idx + 3],
+        );
+        let sprite_height = if (self.lcdc >> 2) & 0x1 == 1 { 16 } else { 8 };
+
+        if (self.ly + 16) >= sprite.y
+            && (self.ly + 16) < (sprite.y + sprite_height)
+            && self.oambuffer.len() < 10
+        {
+            self.oambuffer.push(sprite);
+        }
+    }
+
+    fn drawing(&mut self) {}
 
     fn update_frame_buffer(&mut self) {
         let data_base: i32 = if is_bit_set(self.lcdc, 4) {
@@ -161,6 +197,19 @@ impl Ppu {
 
     pub fn framebuffer(&self) -> &[u8] {
         &self.framebuffer
+    }
+
+    fn set_ppu_mode(&mut self, mode: PpuMode) {
+        self.mode = mode;
+
+        self.lcds &= !0b11;
+
+        self.lcds |= match self.mode {
+            PpuMode::HBlank => 0b00,
+            PpuMode::VBlank => 0b01,
+            PpuMode::OamScan => 0b10,
+            PpuMode::Drawing => 0b11,
+        };
     }
 }
 
