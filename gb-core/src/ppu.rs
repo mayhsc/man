@@ -1,9 +1,9 @@
-mod sprites;
 mod fetcher;
 mod flags;
+mod sprites;
 
+use fetcher::FetcherState;
 use sprites::Sprite;
-use fetcher::Fetcher;
 use std::vec;
 
 use crate::ppu::flags::LCDC;
@@ -27,6 +27,7 @@ pub struct Ppu {
 
     scy: u8,
     scx: u8,
+    lx: u8,
     ly: u8,
     lyc: u8,
     dma: u8,
@@ -40,7 +41,8 @@ pub struct Ppu {
     mode: PpuMode,
 
     oambuffer: Vec<Sprite>,
-    fetcher: Fetcher,
+    fetcher: FetcherState,
+    wly: u8, // Invisible to the CPU
 
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
 }
@@ -54,6 +56,7 @@ impl Default for Ppu {
             lcds: 0x85,
             scy: 0,
             scx: 0,
+            lx: 0,
             ly: 0,
             lyc: 0,
             dma: 0,
@@ -65,7 +68,8 @@ impl Default for Ppu {
             dot: 0,
             mode: PpuMode::OamScan,
             oambuffer: vec![],
-            fetcher: Fetcher::new(),
+            fetcher: FetcherState::new(),
+            wly: 0,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
         }
     }
@@ -173,7 +177,28 @@ impl Ppu {
         }
     }
 
-    fn drawing(&mut self) {}
+    fn drawing(&mut self) {
+        self.get_tile();
+    }
+
+    fn get_tile(&mut self)  -> u16 {
+        self.fetcher.set_tilemap_addr(
+            self.in_window(),
+            self.lcdc.bg_tilemap_high(),
+            self.lcdc.window_tilemap_high(),
+        );
+
+        self.fetcher.get_tile_addr(self.is_window_tile(), self.scx, self.scy, self.ly, self.wly)
+    }
+
+    fn in_window(&self) -> bool {
+        (self.lx + 7) >= self.wx
+    }
+
+    fn is_window_tile(&self) -> bool {
+        return self.lcdc.is_window_enabled() && self.in_window() && self.ly >= self.wy;
+    }
+
     fn update_frame_buffer(&mut self) {
         let data_base: i32 = if self.lcdc.is_tile_data_mode1() {
             0x8000
@@ -227,4 +252,3 @@ impl Ppu {
         };
     }
 }
-
