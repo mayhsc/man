@@ -70,9 +70,12 @@ impl Ppu {
 
     pub fn read(&self, addr: u16) -> u8 {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize],
+            0x8000..=0x9FFF => match self.mode {
+                PpuMode::Drawing => 0xFF,
+                _ => self.vram[(addr - 0x8000) as usize],
+            },
             0xFE00..=0xFE9F => match self.mode {
-                PpuMode::OamScan => 0xFF,
+                PpuMode::OamScan | PpuMode::Drawing => 0xFF,
                 _ => self.oam[(addr - 0xFE00) as usize],
             },
             0xFF40 => self.lcdc,
@@ -93,9 +96,12 @@ impl Ppu {
 
     pub fn write(&mut self, addr: u16, value: u8) {
         match addr {
-            0x8000..=0x9FFF => self.vram[(addr - 0x8000) as usize] = value,
+            0x8000..=0x9FFF => match self.mode {
+                PpuMode::Drawing => {}
+                _ => self.vram[(addr - 0x8000) as usize] = value,
+            },
             0xFE00..=0xFE9F => match self.mode {
-                PpuMode::OamScan => {}
+                PpuMode::OamScan | PpuMode::Drawing => {}
                 _ => self.oam[(addr - 0xFE00) as usize] = value,
             },
             0xFF40 => self.lcdc = value,
@@ -131,7 +137,9 @@ impl Ppu {
                     self.set_ppu_mode(PpuMode::Drawing);
                 }
             }
-            PpuMode::Drawing => {}
+            PpuMode::Drawing => {
+                self.drawing();
+            }
             PpuMode::HBlank => {}
             PpuMode::VBlank => {}
         }
