@@ -1,9 +1,12 @@
 mod sprites;
 mod fetcher;
+mod flags;
 
 use sprites::Sprite;
 use fetcher::Fetcher;
 use std::vec;
+
+use crate::ppu::flags::LCDC;
 
 const RESOLUTION_X: usize = 160;
 const RESOLUTION_Y: usize = 144;
@@ -19,7 +22,7 @@ pub struct Ppu {
     vram: [u8; 0x2000],
     oam: [u8; 0x00A0],
 
-    lcdc: u8,
+    lcdc: flags::LCDC,
     lcds: u8,
 
     scy: u8,
@@ -47,7 +50,7 @@ impl Default for Ppu {
         Self {
             vram: [0; 0x2000],
             oam: [0; 0x00A0],
-            lcdc: 0x91,
+            lcdc: LCDC::new(),
             lcds: 0x85,
             scy: 0,
             scx: 0,
@@ -83,7 +86,7 @@ impl Ppu {
                 PpuMode::OamScan | PpuMode::Drawing => 0xFF,
                 _ => self.oam[(addr - 0xFE00) as usize],
             },
-            0xFF40 => self.lcdc,
+            0xFF40 => self.lcdc.get(),
             0xFF41 => self.lcds | 0x80,
             0xFF42 => self.scy,
             0xFF43 => self.scx,
@@ -109,7 +112,7 @@ impl Ppu {
                 PpuMode::OamScan | PpuMode::Drawing => {}
                 _ => self.oam[(addr - 0xFE00) as usize] = value,
             },
-            0xFF40 => self.lcdc = value,
+            0xFF40 => self.lcdc.set(value),
             0xFF41 => {
                 self.lcds = (self.lcds & 0x07) | (value & 0x78);
             }
@@ -160,7 +163,7 @@ impl Ppu {
             self.oam[idx + 2],
             self.oam[idx + 3],
         );
-        let sprite_height = if (self.lcdc >> 2) & 0x1 == 1 { 16 } else { 8 };
+        let sprite_height = self.lcdc.sprite_height();
 
         if (self.ly + 16) >= sprite.y
             && (self.ly + 16) < (sprite.y + sprite_height)
@@ -172,13 +175,13 @@ impl Ppu {
 
     fn drawing(&mut self) {}
     fn update_frame_buffer(&mut self) {
-        let data_base: i32 = if is_bit_set(self.lcdc, 4) {
+        let data_base: i32 = if self.lcdc.is_tile_data_mode1() {
             0x8000
         } else {
             0x9000
         };
-        let signed = !is_bit_set(self.lcdc, 4);
-        let map_base: usize = if is_bit_set(self.lcdc, 3) {
+        let signed = !self.lcdc.is_tile_data_mode1();
+        let map_base: usize = if self.lcdc.bg_tilemap_high() {
             0x9C00
         } else {
             0x9800
@@ -225,6 +228,3 @@ impl Ppu {
     }
 }
 
-fn is_bit_set(number: u8, position: u8) -> bool {
-    ((number >> position) & 1) == 1
-}
