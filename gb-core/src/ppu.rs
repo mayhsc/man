@@ -1,6 +1,8 @@
 mod sprites;
+mod fetcher;
 
 use sprites::Sprite;
+use fetcher::Fetcher;
 use std::vec;
 
 const RESOLUTION_X: usize = 160;
@@ -35,6 +37,8 @@ pub struct Ppu {
     mode: PpuMode,
 
     oambuffer: Vec<Sprite>,
+    fetcher: Fetcher,
+
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
 }
 
@@ -58,6 +62,7 @@ impl Default for Ppu {
             dot: 0,
             mode: PpuMode::OamScan,
             oambuffer: vec![],
+            fetcher: Fetcher::new(),
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
         }
     }
@@ -166,7 +171,6 @@ impl Ppu {
     }
 
     fn drawing(&mut self) {}
-
     fn update_frame_buffer(&mut self) {
         let data_base: i32 = if is_bit_set(self.lcdc, 4) {
             0x8000
