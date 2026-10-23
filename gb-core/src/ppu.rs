@@ -158,14 +158,6 @@ impl Ppu {
                 }
             }
             PpuMode::Drawing => {
-                // self.oambuffer.clear();
-                // self.pixel_fifo.clear();
-                // self.drawing();
-                // let tile_id_addr = self.get_tile();
-                // let pixels = self.get_tile_data(tile_id_addr);
-                // for pixel in pixels {
-                //     self.pixel_fifo.push_back(pixel);
-                // }
                 self.tick_fetcher();
                 if let Some(pixel) = self.pixel_fifo.pop_front() {
                     self.render_pixel(pixel);
@@ -173,19 +165,21 @@ impl Ppu {
 
                 if self.lx == 160 {
                     self.set_ppu_mode(PpuMode::HBlank);
-                    self.ly += 1;
                 }
             }
             PpuMode::HBlank => {
                 if dot == 456 {
+                    self.ly += 1;
                     self.set_ppu_mode(PpuMode::OamScan);
                     self.lx = 0;
-                    self.dot = 0;
+                    self.dot = 0; // TODO: Fix dot count
                 }
             }
             PpuMode::VBlank => {
-                if dot == 153 {
+                self.ly += 1;
+                if self.ly == 153 {
                     self.ly = 0;
+                    self.dot = 0;
                     self.set_ppu_mode(PpuMode::OamScan);
                 }
             }

@@ -17,6 +17,8 @@ use sdl3::{
 const RESOLUTION_X: u32 = 160;
 const RESOLUTION_Y: u32 = 144;
 const SCALE: u32 = 5;
+const FRAME_M_CYCLES: u32 = 17_556;
+
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -66,7 +68,11 @@ fn main() {
             }
         }
 
-        cpu.step();
+        let mut cycles = 0;
+
+        while cycles < FRAME_M_CYCLES {
+            cycles += cpu.step();
+        }
         to_rgba(cpu.frame_buffer(), &mut rgba, cpu.drawn());
 
         draw_screen(&mut canvas, &mut texture, &rgba);
