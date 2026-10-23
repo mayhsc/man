@@ -46,6 +46,7 @@ pub struct Ppu {
     wly: u8, // Invisible to the CPU
 
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
+    pub drawn: [bool; (RESOLUTION_X * RESOLUTION_Y) as usize], // Debugging which pixels have been drawn
 }
 
 impl Default for Ppu {
@@ -73,6 +74,7 @@ impl Default for Ppu {
             fetcher: FetcherState::new(),
             wly: 0,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
+            drawn: [false; RESOLUTION_X * RESOLUTION_Y],
         }
     }
 }
@@ -142,6 +144,10 @@ impl Ppu {
     pub fn tick(&mut self) {
         let dot = self.dot;
 
+        if self.ly == 144 {
+            self.set_ppu_mode(PpuMode::VBlank);
+        }
+
         match self.mode {
             PpuMode::OamScan => {
                 if dot % 2 == 0 {
@@ -155,11 +161,25 @@ impl Ppu {
                 // self.oambuffer.clear();
                 // self.pixel_fifo.clear();
                 self.drawing();
+                if self.lx == 160 {
+                    self.set_ppu_mode(PpuMode::HBlank);
+                    self.ly += 1;
+                }
             }
-            PpuMode::HBlank => {}
-            PpuMode::VBlank => {}
+            PpuMode::HBlank => {
+                if dot == 456 {
+                    self.set_ppu_mode(PpuMode::OamScan);
+                    self.lx = 0;
+                    self.dot = 0;
+                }
+            }
+            PpuMode::VBlank => {
+                if dot == 153 {
+                    self.ly = 0;
+                    self.set_ppu_mode(PpuMode::OamScan);
+                }
+            }
         }
-        self.update_frame_buffer();
         self.dot += 1;
     }
 
@@ -194,6 +214,9 @@ impl Ppu {
         for pixel in pixels {
             self.pixel_fifo.push_back(pixel);
         }
+        if let Some(pixel) = self.pixel_fifo.pop_front() {
+            self.render_pixel(pixel);
+        }
     }
 
     fn get_tile(&mut self) -> u16 {
@@ -203,7 +226,7 @@ impl Ppu {
             self.lcdc.window_tilemap_high(),
         );
 
-         self.fetcher
+        self.fetcher
             .get_tile_id_addr(self.is_window_tile(), self.scx, self.scy, self.ly, self.wly)
     }
 
@@ -245,40 +268,11 @@ impl Ppu {
         return self.lcdc.is_window_enabled() && self.in_window() && self.ly >= self.wy;
     }
 
-    fn update_frame_buffer(&mut self) {
-        let data_base: i32 = if self.lcdc.is_tile_data_mode1() {
-            0x8000
-        } else {
-            0x9000
-        };
-        let signed = !self.lcdc.is_tile_data_mode1();
-        let map_base: usize = if self.lcdc.bg_tilemap_high() {
-            0x9C00
-        } else {
-            0x9800
-        };
-
-        for y in 0..144 {
-            for x in 0..160 {
-                let bx = (x + self.scx as usize) & 0xFF;
-                let by = (y + self.scy as usize) & 0xFF;
-
-                let tile_index = self.vram[map_base + (by / 8) * 32 + (bx / 8) - 0x8000];
-                let tile_addr = if signed {
-                    data_base + (tile_index as i8 as i32) * 16
-                } else {
-                    data_base + (tile_index as i32) * 16
-                } as usize;
-
-                let row = by % 8;
-                let lo = self.vram[tile_addr + row * 2 - 0x8000];
-                let hi = self.vram[tile_addr + row * 2 + 1 - 0x8000];
-
-                let bit = 7 - (bx % 8);
-                let color_index = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
-                self.framebuffer[y * 160 + x] = (self.bgp >> (color_index * 2)) & 0b11;
-            }
-        }
+    fn render_pixel(&mut self, color_index: u8) {
+        let (x, y) = (self.lx as usize, self.ly as usize);
+        self.framebuffer[y * 160 + x] = (self.bgp >> (color_index * 2)) & 0b11;
+        self.drawn[y * 160 + x] = true;
+        self.lx += 1;
     }
 
     pub fn framebuffer(&self) -> &[u8] {

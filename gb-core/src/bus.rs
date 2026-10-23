@@ -128,4 +128,8 @@ impl MemoryMap {
     pub fn framebuffer(&self) -> &[u8] {
         &self.ppu.framebuffer()
     }
+
+pub fn drawn(&self) -> &[bool] {
+    &self.ppu.drawn
+}
 }

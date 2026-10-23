@@ -67,7 +67,7 @@ fn main() {
         }
 
         cpu.step();
-        to_rgba(cpu.frame_buffer(), &mut rgba);
+        to_rgba(cpu.frame_buffer(), &mut rgba, cpu.drawn());
 
         draw_screen(&mut canvas, &mut texture, &rgba);
 
@@ -106,7 +106,7 @@ fn draw_screen(canvas: &mut Canvas<Window>, texture: &mut Texture<'_>, rgba: &[u
     canvas.copy(texture, None, None).unwrap();
 }
 
-fn to_rgba(shades: &[u8], out: &mut [u8]) {
+fn to_rgba(shades: &[u8], out: &mut [u8], drawn: &[bool]) {
     const PALETTE: [[u8; 4]; 4] = [
         [0x9B, 0xBC, 0x0F, 0xFF],
         [0x8B, 0xAC, 0x0F, 0xFF],
@@ -114,7 +114,13 @@ fn to_rgba(shades: &[u8], out: &mut [u8]) {
         [0x0F, 0x38, 0x0F, 0xFF],
     ];
 
-    for (i, &s) in shades.iter().enumerate() {
-        out[i * 4..i * 4 + 4].copy_from_slice(&PALETTE[(s & 3) as usize]);
+    for (i, (&shade, &is_drawn)) in shades.iter().zip(drawn).enumerate() {
+        let rgba = if is_drawn {
+            &PALETTE[(shade & 3) as usize]
+        } else {
+            &[0x00, 0x00, 0x00, 0xFF]
+        };
+
+        out[i * 4..i * 4 + 4].copy_from_slice(rgba);
     }
 }

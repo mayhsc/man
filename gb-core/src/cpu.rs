@@ -670,4 +670,8 @@ impl Cpu<MemoryMap> {
     pub fn frame_buffer(&self) -> &[u8] {
         &self.bus.framebuffer()
     }
+
+    pub fn drawn(&self) -> &[bool] {
+        &self.bus.drawn()
+    }
 }
