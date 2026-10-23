@@ -164,17 +164,24 @@ impl Ppu {
     }
 
     fn oam_scan(&mut self) {
-        let idx = (self.dot / 2) as usize;
+        let sprite_index = (self.dot / 2) as usize;
+        let offset = sprite_index * 4;
+
+        if sprite_index >= 40 {
+            return;
+        }
+
         let sprite = Sprite::new(
-            self.oam[idx + 1],
-            self.oam[idx],
-            self.oam[idx + 2],
-            self.oam[idx + 3],
+            self.oam[offset],
+            self.oam[offset + 1],
+            self.oam[offset + 2],
+            self.oam[offset + 3],
         );
+
         let sprite_height = self.lcdc.sprite_height();
 
-        if (self.ly + 16) >= sprite.y
-            && (self.ly + 16) < (sprite.y + sprite_height)
+        if self.ly + 16 >= sprite.y
+            && self.ly + 16 < sprite.y + sprite_height
             && self.oambuffer.len() < 10
         {
             self.oambuffer.push(sprite);
