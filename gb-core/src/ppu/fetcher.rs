@@ -26,7 +26,7 @@ impl FetcherState {
             };
     }
 
-    pub fn get_tile_addr(
+    pub fn get_tile_id_addr(
         &self,
         is_window_tile: bool,
         scx: u8,
