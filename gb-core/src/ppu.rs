@@ -45,6 +45,8 @@ pub struct Ppu {
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
 
+    window_active: bool,
+
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
     pub drawn: [bool; (RESOLUTION_X * RESOLUTION_Y) as usize], // Debugging which pixels have been drawn
 }
@@ -73,6 +75,7 @@ impl Default for Ppu {
             pixel_fifo: VecDeque::new(),
             fetcher: FetcherState::new(),
             wly: 0,
+            window_active: false,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
             drawn: [false; RESOLUTION_X * RESOLUTION_Y],
         }
@@ -158,10 +161,19 @@ impl Ppu {
                 }
             }
             PpuMode::Drawing => {
-                self.tick_fetcher();
                 if let Some(pixel) = self.pixel_fifo.pop_front() {
-                    self.render_pixel(pixel);
+                    if self.should_start_window() {
+                        self.window_active = true;
+                        self.pixel_fifo.clear();
+                        if self.wx == 0 && (self.scx & 7) > 0  {
+                            // TODO: Shorten 1 dot somehow
+                        }
+                    } else {
+                        self.render_pixel(pixel);
+                    }
                 }
+
+                self.tick_fetcher();
 
                 if self.lx == 160 {
                     self.set_ppu_mode(PpuMode::HBlank);
@@ -274,6 +286,10 @@ impl Ppu {
 
     fn is_window_tile(&self) -> bool {
         return self.lcdc.is_window_enabled() && self.in_window() && self.ly >= self.wy;
+    }
+
+    fn should_start_window(&self) -> bool {
+        !self.window_active && self.is_window_tile()
     }
 
     fn render_pixel(&mut self, color_index: u8) {
