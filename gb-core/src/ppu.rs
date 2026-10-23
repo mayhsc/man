@@ -2,7 +2,7 @@ mod fetcher;
 mod flags;
 mod sprites;
 
-use fetcher::FetcherState;
+use fetcher::{FetcherState, FetcherStep};
 use sprites::Sprite;
 use std::{collections::VecDeque, vec};
 
@@ -160,7 +160,17 @@ impl Ppu {
             PpuMode::Drawing => {
                 // self.oambuffer.clear();
                 // self.pixel_fifo.clear();
-                self.drawing();
+                // self.drawing();
+                // let tile_id_addr = self.get_tile();
+                // let pixels = self.get_tile_data(tile_id_addr);
+                // for pixel in pixels {
+                //     self.pixel_fifo.push_back(pixel);
+                // }
+                self.tick_fetcher();
+                if let Some(pixel) = self.pixel_fifo.pop_front() {
+                    self.render_pixel(pixel);
+                }
+
                 if self.lx == 160 {
                     self.set_ppu_mode(PpuMode::HBlank);
                     self.ly += 1;
@@ -208,56 +218,60 @@ impl Ppu {
         }
     }
 
-    fn drawing(&mut self) {
-        let tile_id_addr = self.get_tile();
-        let pixels = self.get_tile_data(tile_id_addr);
-        for pixel in pixels {
-            self.pixel_fifo.push_back(pixel);
+    fn tick_fetcher(&mut self) {
+        match self.fetcher.current_step() {
+            FetcherStep::GetTile => {
+                self.fetcher.set_tilemap_addr(
+                    self.in_window(),
+                    self.lcdc.bg_tilemap_high(),
+                    self.lcdc.window_tilemap_high(),
+                );
+                let addr = self.fetcher.get_tile_id_addr(
+                    self.is_window_tile(),
+                    self.scx,
+                    self.scy,
+                    self.ly,
+                    self.wly,
+                );
+                let tile_id = self.vram[(addr - 0x8000) as usize];
+                self.fetcher.set_tile_id(tile_id);
+                self.fetcher.advance_step();
+            }
+
+            FetcherStep::GetTileDataLow => {
+                let addr = self.fetcher.tile_data_addr(
+                    self.lcdc.is_tile_data_mode1(),
+                    self.is_window_tile(),
+                    self.wly,
+                    self.ly,
+                    self.scy,
+                );
+                let low = self.vram[(addr - 0x8000) as usize];
+                self.fetcher.set_tile_data_low(low);
+                self.fetcher.advance_step();
+            }
+
+            FetcherStep::GetTileDataHigh => {
+                let addr = self.fetcher.tile_data_addr(
+                    self.lcdc.is_tile_data_mode1(),
+                    self.is_window_tile(),
+                    self.wly,
+                    self.ly,
+                    self.scy,
+                );
+                let high = self.vram[(addr - 0x8000) as usize];
+                self.fetcher.set_tile_data_high(high);
+                self.fetcher.advance_step();
+            }
+
+            FetcherStep::Sleep => {
+                self.fetcher.advance_step();
+            }
+
+            FetcherStep::Push => {
+                self.fetcher.push_pixels(&mut self.pixel_fifo);
+            }
         }
-        if let Some(pixel) = self.pixel_fifo.pop_front() {
-            self.render_pixel(pixel);
-        }
-    }
-
-    fn get_tile(&mut self) -> u16 {
-        self.fetcher.set_tilemap_addr(
-            self.in_window(),
-            self.lcdc.bg_tilemap_high(),
-            self.lcdc.window_tilemap_high(),
-        );
-
-        self.fetcher
-            .get_tile_id_addr(self.is_window_tile(), self.scx, self.scy, self.ly, self.wly)
-    }
-
-    fn get_tile_data(&mut self, tile_id_addr: u16) -> [u8; 8] {
-        let tile_index = self.vram[(tile_id_addr - 0x8000) as usize];
-        let tile_addr = if self.lcdc.is_tile_data_mode1() {
-            0x8000i32 + tile_index as i32 * 16
-        } else {
-            0x9000i32 + (tile_index as i8 as i32) * 16
-        } as usize;
-        let row_in_tile = if self.is_window_tile() {
-            self.wly % 8
-        } else {
-            (self.ly + self.scy) % 8
-        };
-        let row_addr = tile_addr + row_in_tile as usize * 2;
-
-        let lo = self.vram[row_addr - 0x8000];
-        let hi = self.vram[row_addr + 1 - 0x8000];
-
-        let mut pixels = [0u8; 8];
-
-        for x in 0..8 {
-            let bit = 7 - x;
-            let low_bit = (lo >> bit) & 1;
-            let high_bit = (hi >> bit) & 1;
-
-            pixels[x] = (high_bit << 1) | low_bit;
-        }
-
-        pixels
     }
 
     fn in_window(&self) -> bool {
