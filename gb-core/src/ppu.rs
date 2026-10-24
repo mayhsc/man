@@ -46,6 +46,7 @@ pub struct Ppu {
     wly: u8, // Invisible to the CPU
 
     window_active: bool,
+    scx_discard_counter: Option<u8>,
 
     framebuffer: [u8; (RESOLUTION_X * RESOLUTION_Y) as usize],
     pub drawn: [bool; (RESOLUTION_X * RESOLUTION_Y) as usize], // Debugging which pixels have been drawn
@@ -76,6 +77,7 @@ impl Default for Ppu {
             fetcher: FetcherState::new(),
             wly: 0,
             window_active: false,
+            scx_discard_counter: None,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
             drawn: [false; RESOLUTION_X * RESOLUTION_Y],
         }
@@ -157,6 +159,16 @@ impl Ppu {
                 }
             }
             PpuMode::Drawing => {
+                'discard_check: {
+                    if !self.pixel_fifo.is_empty() {
+                        if let Some(mut v) = self.scx_discard_counter {
+                            v = v - 1;
+                            self.scx_discard_counter = if v == 0 { None } else { Some(v) };
+
+                            break 'discard_check;
+                        }
+                    }
+                }
                 if let Some(pixel) = self.pixel_fifo.pop_front() {
                     if self.should_start_window() {
                         self.window_active = true;
@@ -202,6 +214,12 @@ impl Ppu {
 
     fn start_line(&mut self) {
         self.set_ppu_mode(PpuMode::OamScan);
+        let scroll_discard_value = self.scx % 8;
+        self.scx_discard_counter = if scroll_discard_value == 0 {
+            None
+        } else {
+            Some(scroll_discard_value)
+        };
         self.lx = 0;
         self.oambuffer.clear();
         self.pixel_fifo.clear();
