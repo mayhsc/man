@@ -127,7 +127,17 @@ impl Ppu {
                 PpuMode::OamScan | PpuMode::Drawing => {}
                 _ => self.oam[(addr - 0xFE00) as usize] = value,
             },
-            0xFF40 => self.lcdc.set(value),
+            0xFF40 => {
+                let old = self.lcdc.get();
+                if (old & 0x80) != (value & 0x80) {
+                    if value & 0x80 == 0 {
+                        self.disable_ppu();
+                    } else {
+                        self.enable_ppu();
+                    }
+                }
+                self.lcdc.set(value)
+            }
             0xFF41 => {
                 self.lcds = (self.lcds & 0x07) | (value & 0x78);
             }
@@ -149,6 +159,9 @@ impl Ppu {
     }
 
     pub fn tick(&mut self) -> u8 {
+        if !self.lcdc.is_ppu_enabled() {
+            return 0;
+        }
         let dot = self.dot;
         self.interrupt_flags = 0;
 
@@ -215,6 +228,17 @@ impl Ppu {
             }
         }
         self.interrupt_flags
+    }
+
+    fn disable_ppu(&mut self) {
+        self.ly = 0;
+        self.lx = 0;
+        self.dot = 0;
+        self.set_ppu_mode(PpuMode::HBlank);
+    }
+
+    fn enable_ppu(&mut self) {
+        self.set_ppu_mode(PpuMode::OamScan);
     }
 
     fn start_line(&mut self) {
@@ -328,7 +352,7 @@ impl Ppu {
     }
 
     fn in_window(&self) -> bool {
-        (self.lx + 7) >= self.wx
+        (self.lx.wrapping_add(7)) >= self.wx
     }
 
     fn is_window_tile(&self) -> bool {
@@ -356,19 +380,12 @@ impl Ppu {
         self.lcds &= !0b11;
 
         self.lcds |= match self.mode {
-            PpuMode::HBlank => {
-                self.interrupt_flags |= 0b0000_0001;
-                0b00
-            }
+            PpuMode::HBlank => 0b00,
             PpuMode::VBlank => {
-                self.interrupt_flags |= 0b0000_0001;
                 self.interrupt_flags |= 0b0000_0010;
                 0b01
             }
-            PpuMode::OamScan => {
-                self.interrupt_flags |= 0b0000_0001;
-                0b10
-            }
+            PpuMode::OamScan => 0b10,
             PpuMode::Drawing => 0b11,
         };
     }
