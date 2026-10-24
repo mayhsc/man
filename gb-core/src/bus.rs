@@ -54,8 +54,6 @@ impl Default for MemoryMap {
 impl Bus for MemoryMap {
     fn read(&self, addr: u16) -> u8 {
         match addr {
-            // Added temporaraily for testing with gameboy doctor
-            0xFF44 => 0x90,
             0x0000..=0x3FFF => self.rombank00[addr as usize],
             0x4000..=0x7FFF => self.rombank01_nn[(addr - 0x4000) as usize],
             0xA000..=0xBFFF => self.extram[(addr - 0xA000) as usize],
@@ -101,7 +99,10 @@ impl Bus for MemoryMap {
                 let _if = self.read(IF_ADDR) | 1 << 2;
                 self.write(IF_ADDR, _if);
             }
-            self.ppu.tick();
+            if self.ppu.tick() {
+                let _if = self.read(IF_ADDR) | 0b001;
+                self.write(IF_ADDR, _if);
+            }
         }
     }
 }
@@ -129,7 +130,7 @@ impl MemoryMap {
         &self.ppu.framebuffer()
     }
 
-pub fn drawn(&self) -> &[bool] {
-    &self.ppu.drawn
-}
+    pub fn drawn(&self) -> &[bool] {
+        &self.ppu.drawn
+    }
 }

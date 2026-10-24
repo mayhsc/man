@@ -144,12 +144,8 @@ impl Ppu {
         }
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self) -> bool {
         let dot = self.dot;
-
-        if self.ly == 144 {
-            self.set_ppu_mode(PpuMode::VBlank);
-        }
 
         match self.mode {
             PpuMode::OamScan => {
@@ -166,7 +162,7 @@ impl Ppu {
                         self.window_active = true;
                         self.pixel_fifo.clear();
                         if self.wx == 0 && (self.scx & 7) > 0 {
-                            // TODO: Shorten 1 dot somehow
+                            // TODO: Shorten 1 dot
                         }
                     } else {
                         self.render_pixel(pixel);
@@ -189,6 +185,7 @@ impl Ppu {
             match self.ly {
                 144 => {
                     self.set_ppu_mode(PpuMode::VBlank);
+                    return true;
                 }
                 154 => {
                     self.ly = 0;
@@ -200,7 +197,9 @@ impl Ppu {
                 _ => {}
             }
         }
+        false
     }
+
     fn start_line(&mut self) {
         self.set_ppu_mode(PpuMode::OamScan);
         self.lx = 0;
@@ -235,6 +234,7 @@ impl Ppu {
     }
 
     fn tick_fetcher(&mut self) {
+        // TODO: Add proper timing delays
         match self.fetcher.current_step() {
             FetcherStep::GetTile => {
                 self.fetcher.set_tilemap_addr(
@@ -265,6 +265,13 @@ impl Ppu {
                 let low = self.vram[(addr - 0x8000) as usize];
                 self.fetcher.set_tile_data_low(low);
                 self.fetcher.advance_step();
+                // println!(
+                //     "LY={} tile_id={:02X} low={:02X} high={:02X}",
+                //     self.ly,
+                //     self.fetcher.tile_id,
+                //     self.fetcher.tile_data_low,
+                //     self.fetcher.tile_data_high,
+                // );
             }
 
             FetcherStep::GetTileDataHigh => {
@@ -278,6 +285,13 @@ impl Ppu {
                 let high = self.vram[(addr - 0x8000) as usize];
                 self.fetcher.set_tile_data_high(high);
                 self.fetcher.advance_step();
+                // println!(
+                //     "LY={} tile_id={:02X} low={:02X} high={:02X}",
+                //     self.ly,
+                //     self.fetcher.tile_id,
+                //     self.fetcher.tile_data_low,
+                //     self.fetcher.tile_data_high,
+                // );
             }
 
             FetcherStep::Sleep => {

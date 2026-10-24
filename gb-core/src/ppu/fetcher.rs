@@ -70,7 +70,7 @@ impl FetcherState {
         let row_in_tile = if is_window_tile {
             wly % 8
         } else {
-            (ly + scy) % 8
+            ly.wrapping_add(scy) % 8
         };
         tile_addr + row_in_tile as usize * 2
     }
@@ -84,6 +84,7 @@ impl FetcherState {
 
                 fifo.push_back((high_bit << 1) | low_bit);
             }
+            self.fetcher_x = self.fetcher_x.wrapping_add(1) & 0x1F;
             self.advance_step();
             self.step_dots = 0;
         }
