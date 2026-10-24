@@ -44,7 +44,9 @@ pub struct Ppu {
     pixel_fifo: VecDeque<u8>,
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
+
     interrupt_flags: u8,
+    stat_line: bool,
 
     window_active: bool,
     scx_discard_counter: Option<u8>,
@@ -78,6 +80,7 @@ impl Default for Ppu {
             fetcher: FetcherState::new(),
             wly: 0,
             interrupt_flags: 0,
+            stat_line: false,
             window_active: false,
             scx_discard_counter: None,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
@@ -210,9 +213,9 @@ impl Ppu {
         if self.dot == 456 {
             self.dot = 0;
             self.ly += 1;
-            if self.lyc == self.ly {
-                self.interrupt_flags |= 0b0000_0001;
-            }
+
+            self.update_stat_line();
+
             match self.ly {
                 144 => {
                     self.set_ppu_mode(PpuMode::VBlank);
@@ -239,6 +242,29 @@ impl Ppu {
 
     fn enable_ppu(&mut self) {
         self.set_ppu_mode(PpuMode::OamScan);
+    }
+
+    fn update_stat_line(&mut self) {
+        let coincidence = self.ly == self.lyc;
+
+        if coincidence {
+            self.lcds |= 0x04;
+        } else {
+            self.lcds &= !0x04;
+        }
+
+        let mode = self.lcds & 0x03;
+
+        let stat_line = (mode == 0 && self.lcds & 0x08 != 0)
+            || (mode == 1 && self.lcds & 0x10 != 0)
+            || (mode == 2 && self.lcds & 0x20 != 0)
+            || (coincidence && self.lcds & 0x40 != 0);
+
+        if stat_line && !self.stat_line {
+            self.interrupt_flags |= 0x02;
+        }
+
+        self.stat_line = stat_line;
     }
 
     fn start_line(&mut self) {
