@@ -44,6 +44,7 @@ pub struct Ppu {
     pixel_fifo: VecDeque<u8>,
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
+    interrupt_flags: u8,
 
     window_active: bool,
     scx_discard_counter: Option<u8>,
@@ -76,6 +77,7 @@ impl Default for Ppu {
             pixel_fifo: VecDeque::new(),
             fetcher: FetcherState::new(),
             wly: 0,
+            interrupt_flags: 0,
             window_active: false,
             scx_discard_counter: None,
             framebuffer: [0; RESOLUTION_X * RESOLUTION_Y],
@@ -146,8 +148,9 @@ impl Ppu {
         }
     }
 
-    pub fn tick(&mut self) -> bool {
+    pub fn tick(&mut self) -> u8 {
         let dot = self.dot;
+        self.interrupt_flags = 0;
 
         match self.mode {
             PpuMode::OamScan => {
@@ -194,10 +197,12 @@ impl Ppu {
         if self.dot == 456 {
             self.dot = 0;
             self.ly += 1;
+            if self.lyc == self.ly {
+                self.interrupt_flags |= 0b0000_0001;
+            }
             match self.ly {
                 144 => {
                     self.set_ppu_mode(PpuMode::VBlank);
-                    return true;
                 }
                 154 => {
                     self.ly = 0;
@@ -209,7 +214,7 @@ impl Ppu {
                 _ => {}
             }
         }
-        false
+        self.interrupt_flags
     }
 
     fn start_line(&mut self) {
@@ -351,9 +356,19 @@ impl Ppu {
         self.lcds &= !0b11;
 
         self.lcds |= match self.mode {
-            PpuMode::HBlank => 0b00,
-            PpuMode::VBlank => 0b01,
-            PpuMode::OamScan => 0b10,
+            PpuMode::HBlank => {
+                self.interrupt_flags |= 0b0000_0001;
+                0b00
+            }
+            PpuMode::VBlank => {
+                self.interrupt_flags |= 0b0000_0001;
+                self.interrupt_flags |= 0b0000_0010;
+                0b01
+            }
+            PpuMode::OamScan => {
+                self.interrupt_flags |= 0b0000_0001;
+                0b10
+            }
             PpuMode::Drawing => 0b11,
         };
     }

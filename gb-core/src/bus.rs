@@ -99,9 +99,10 @@ impl Bus for MemoryMap {
                 let _if = self.read(IF_ADDR) | 1 << 2;
                 self.write(IF_ADDR, _if);
             }
-            if self.ppu.tick() {
-                let _if = self.read(IF_ADDR) | 0b001;
-                self.write(IF_ADDR, _if);
+            let interrupts = self.ppu.tick();
+            if interrupts != 0 {
+                let current_if = self.read(IF_ADDR);
+                self.write(IF_ADDR, current_if | interrupts);
             }
         }
     }
