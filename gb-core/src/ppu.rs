@@ -165,7 +165,7 @@ impl Ppu {
                     if self.should_start_window() {
                         self.window_active = true;
                         self.pixel_fifo.clear();
-                        if self.wx == 0 && (self.scx & 7) > 0  {
+                        if self.wx == 0 && (self.scx & 7) > 0 {
                             // TODO: Shorten 1 dot somehow
                         }
                     } else {
@@ -179,24 +179,34 @@ impl Ppu {
                     self.set_ppu_mode(PpuMode::HBlank);
                 }
             }
-            PpuMode::HBlank => {
-                if dot == 456 {
-                    self.ly += 1;
-                    self.set_ppu_mode(PpuMode::OamScan);
-                    self.lx = 0;
-                    self.dot = 0; // TODO: Fix dot count
-                }
-            }
-            PpuMode::VBlank => {
-                self.ly += 1;
-                if self.ly == 153 {
-                    self.ly = 0;
-                    self.dot = 0;
-                    self.set_ppu_mode(PpuMode::OamScan);
-                }
-            }
+            PpuMode::HBlank => {}
+            PpuMode::VBlank => {}
         }
         self.dot += 1;
+        if self.dot == 456 {
+            self.dot = 0;
+            self.ly += 1;
+            match self.ly {
+                144 => {
+                    self.set_ppu_mode(PpuMode::VBlank);
+                }
+                154 => {
+                    self.ly = 0;
+                    self.wly = 0;
+                    self.window_active = false;
+                    self.start_line();
+                }
+                1..=143 => self.start_line(),
+                _ => {}
+            }
+        }
+    }
+    fn start_line(&mut self) {
+        self.set_ppu_mode(PpuMode::OamScan);
+        self.lx = 0;
+        self.oambuffer.clear();
+        self.pixel_fifo.clear();
+        self.fetcher = FetcherState::new();
     }
 
     fn oam_scan(&mut self) {
