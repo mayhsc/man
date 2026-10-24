@@ -19,7 +19,6 @@ const RESOLUTION_Y: u32 = 144;
 const SCALE: u32 = 5;
 const FRAME_M_CYCLES: u32 = 17_556;
 
-
 fn main() {
     let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
