@@ -318,7 +318,7 @@ impl Ppu {
         match self.fetcher.current_step() {
             FetcherStep::GetTile => {
                 self.fetcher.set_tilemap_addr(
-                    self.in_window(),
+                    self.is_window_tile(),
                     self.lcdc.bg_tilemap_high(),
                     self.lcdc.window_tilemap_high(),
                 );
@@ -417,7 +417,7 @@ impl Ppu {
         self.lcds |= match self.mode {
             PpuMode::HBlank => 0b00,
             PpuMode::VBlank => {
-                self.interrupt_flags |= 0b0000_0010;
+                self.interrupt_flags |= 0b0000_0001;
                 0b01
             }
             PpuMode::OamScan => 0b10,
