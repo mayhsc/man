@@ -111,14 +111,15 @@ impl<B: Bus> Cpu<B> {
             return;
         }
 
+        self.tick();
+        self.tick();
+
         let _if = self.bus.peek(IF_ADDR);
         let pending_interrupts = self.pending_interrupts();
         if pending_interrupts == 0 {
             return;
         }
 
-        self.tick();
-        self.tick();
 
         self.ime = false;
         self.ei_delay = 0;

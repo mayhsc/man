@@ -194,6 +194,7 @@ impl Ppu {
                     if self.should_start_window() {
                         self.window_active = true;
                         self.pixel_fifo.clear();
+                        self.fetcher.restart_window();
                         if self.wx == 0 && (self.scx & 7) > 0 {
                             // TODO: Shorten 1 dot
                         }
@@ -216,8 +217,6 @@ impl Ppu {
             self.dot = 0;
             self.ly += 1;
 
-            self.update_stat_line();
-
             match self.ly {
                 144 => {
                     self.set_ppu_mode(PpuMode::VBlank);
@@ -231,6 +230,7 @@ impl Ppu {
                 1..=143 => self.start_line(),
                 _ => {}
             }
+            self.update_stat_line();
         }
         self.interrupt_flags
     }
@@ -311,7 +311,7 @@ impl Ppu {
     fn tick_fetcher(&mut self) {
         self.fetcher.ticks += 1;
 
-        if self.fetcher.ticks < 2  && self.fetcher.current_step() != FetcherStep::Push {
+        if self.fetcher.ticks < 2 && self.fetcher.current_step() != FetcherStep::Push {
             return;
         }
 

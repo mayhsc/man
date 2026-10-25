@@ -56,6 +56,12 @@ impl FetcherState {
         self.tile_data_high = value
     }
 
+    pub fn restart_window(&mut self) {
+        self.fetcher_x = 0;
+        self.step = FetcherStep::GetTile;
+        self.ticks = 0;
+    }
+
     pub fn tile_data_addr(
         &mut self,
         is_tile_data_mode1: bool,
