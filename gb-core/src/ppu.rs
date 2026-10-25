@@ -42,6 +42,7 @@ pub struct Ppu {
 
     oambuffer: Vec<Sprite>,
     pixel_fifo: VecDeque<u8>,
+    oam_fifo: u8,
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
 
@@ -77,6 +78,7 @@ impl Default for Ppu {
             mode: PpuMode::OamScan,
             oambuffer: vec![],
             pixel_fifo: VecDeque::new(),
+            oam_fifo: 0,
             fetcher: FetcherState::new(),
             wly: 0,
             interrupt_flags: 0,
@@ -355,7 +357,7 @@ impl Ppu {
                     self.ly,
                     self.scy,
                 );
-                let high = self.vram[(addr - 0x8000) as usize];
+                let high = self.vram[(addr + 1 - 0x8000) as usize];
                 self.fetcher.set_tile_data_high(high);
                 self.fetcher.advance_step();
                 // println!(
@@ -374,6 +376,22 @@ impl Ppu {
             FetcherStep::Push => {
                 self.fetcher.push_pixels(&mut self.pixel_fifo);
             }
+        }
+    }
+
+    fn populate_oam_fifo(&mut self) {
+        self.oambuffer.sort_by_key(|s| s.x);
+        let popped_sprites: Vec<Sprite> = self
+            .oambuffer
+            .extract_if(.., |sprite| sprite.x <= self.lx + 8)
+            .collect();
+
+        for sprite in popped_sprites {
+            let vram_address: u16 = if self.lcdc.sprite_height() == 8 {
+                0x8000 + ((sprite.tile_idx as u16) * 16)
+            } else {
+                0x8000 + ((sprite.tile_idx & 0xFE) as u16 * 16)
+            };
         }
     }
 

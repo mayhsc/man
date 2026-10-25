@@ -69,7 +69,7 @@ fn main() {
 
         let mut cycles = 0;
 
-        while cycles < FRAME_M_CYCLES {
+        while cycles < 1000 {
             cycles += cpu.step();
         }
         to_rgba(cpu.frame_buffer(), &mut rgba, cpu.drawn());
@@ -113,10 +113,10 @@ fn draw_screen(canvas: &mut Canvas<Window>, texture: &mut Texture<'_>, rgba: &[u
 
 fn to_rgba(shades: &[u8], out: &mut [u8], drawn: &[bool]) {
     const PALETTE: [[u8; 4]; 4] = [
-        [0x9B, 0xBC, 0x0F, 0xFF],
-        [0x8B, 0xAC, 0x0F, 0xFF],
-        [0x30, 0x62, 0x30, 0xFF],
-        [0x0F, 0x38, 0x0F, 0xFF],
+        [0xC8, 0xCC, 0xC8, 0xFF],
+        [0xA0, 0xA4, 0xA0, 0xFF],
+        [0x68, 0x6C, 0x68, 0xFF],
+        [0x30, 0x34, 0x30, 0xFF],
     ];
 
     for (i, (&shade, &is_drawn)) in shades.iter().zip(drawn).enumerate() {
