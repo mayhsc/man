@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub(super) enum FetcherStep {
     #[default]
     GetTile,
@@ -16,11 +16,12 @@ pub(super) struct FetcherState {
     fetcher_x: u8,
 
     step: FetcherStep,
-    step_dots: u8,
 
     tile_id: u8,
     tile_data_low: u8,
     tile_data_high: u8,
+
+    pub ticks: u8,
 }
 
 impl FetcherState {
@@ -33,6 +34,7 @@ impl FetcherState {
     }
 
     pub fn advance_step(&mut self) {
+        self.ticks = 0;
         self.step = match self.step {
             FetcherStep::GetTile => FetcherStep::GetTileDataLow,
             FetcherStep::GetTileDataLow => FetcherStep::GetTileDataHigh,
@@ -86,7 +88,6 @@ impl FetcherState {
             }
             self.fetcher_x = self.fetcher_x.wrapping_add(1) & 0x1F;
             self.advance_step();
-            self.step_dots = 0;
         }
     }
 

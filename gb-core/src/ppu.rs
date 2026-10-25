@@ -309,7 +309,12 @@ impl Ppu {
     }
 
     fn tick_fetcher(&mut self) {
-        // TODO: Add proper timing delays
+        self.fetcher.ticks += 1;
+
+        if self.fetcher.ticks < 2  && self.fetcher.current_step() != FetcherStep::Push {
+            return;
+        }
+
         match self.fetcher.current_step() {
             FetcherStep::GetTile => {
                 self.fetcher.set_tilemap_addr(
@@ -340,13 +345,6 @@ impl Ppu {
                 let low = self.vram[(addr - 0x8000) as usize];
                 self.fetcher.set_tile_data_low(low);
                 self.fetcher.advance_step();
-                // println!(
-                //     "LY={} tile_id={:02X} low={:02X} high={:02X}",
-                //     self.ly,
-                //     self.fetcher.tile_id,
-                //     self.fetcher.tile_data_low,
-                //     self.fetcher.tile_data_high,
-                // );
             }
 
             FetcherStep::GetTileDataHigh => {
@@ -360,13 +358,6 @@ impl Ppu {
                 let high = self.vram[(addr + 1 - 0x8000) as usize];
                 self.fetcher.set_tile_data_high(high);
                 self.fetcher.advance_step();
-                // println!(
-                //     "LY={} tile_id={:02X} low={:02X} high={:02X}",
-                //     self.ly,
-                //     self.fetcher.tile_id,
-                //     self.fetcher.tile_data_low,
-                //     self.fetcher.tile_data_high,
-                // );
             }
 
             FetcherStep::Sleep => {

@@ -69,7 +69,7 @@ fn main() {
 
         let mut cycles = 0;
 
-        while cycles < 1000 {
+        while cycles < 500 {
             cycles += cpu.step();
         }
         to_rgba(cpu.frame_buffer(), &mut rgba, cpu.drawn());
