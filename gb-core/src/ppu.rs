@@ -180,26 +180,19 @@ impl Ppu {
                 }
             }
             PpuMode::Drawing => {
-                'discard_check: {
-                    if !self.pixel_fifo.is_empty() {
-                        if let Some(mut v) = self.scx_discard_counter {
-                            v = v - 1;
-                            self.scx_discard_counter = if v == 0 { None } else { Some(v) };
+                if !self.pixel_fifo.is_empty() {
+                    if let Some(v) = self.scx_discard_counter {
+                        self.pixel_fifo.pop_front();
 
-                            break 'discard_check;
+                        self.scx_discard_counter = if v > 1 { Some(v - 1) } else { None };
+                    } else if let Some(pixel) = self.pixel_fifo.pop_front() {
+                        if self.should_start_window() {
+                            self.window_active = true;
+                            self.pixel_fifo.clear();
+                            self.fetcher.restart_window();
+                        } else {
+                            self.render_pixel(pixel);
                         }
-                    }
-                }
-                if let Some(pixel) = self.pixel_fifo.pop_front() {
-                    if self.should_start_window() {
-                        self.window_active = true;
-                        self.pixel_fifo.clear();
-                        self.fetcher.restart_window();
-                        if self.wx == 0 && (self.scx & 7) > 0 {
-                            // TODO: Shorten 1 dot
-                        }
-                    } else {
-                        self.render_pixel(pixel);
                     }
                 }
 

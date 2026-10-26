@@ -53,11 +53,14 @@ impl<B: Bus> Cpu<B> {
         self.m_cycles = 0;
         if self.halted {
             self.tick();
-
             if self.pending_interrupts() != 0 {
                 self.halted = false;
+                if self.ime {
+                    self.regs.pc = self.regs.pc.wrapping_sub(1);
+                    self.handle_interrupt();
+                    self.opcode = self.fetch_byte();
+                }
             }
-            self.handle_interrupt();
             return self.m_cycles;
         }
 
@@ -119,7 +122,6 @@ impl<B: Bus> Cpu<B> {
         if pending_interrupts == 0 {
             return;
         }
-
 
         self.ime = false;
         self.ei_delay = 0;
