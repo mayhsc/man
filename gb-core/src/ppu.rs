@@ -1,12 +1,12 @@
 mod fetcher;
-mod flags;
+mod lcdc;
 mod sprites;
 
 use fetcher::{FetcherState, FetcherStep};
 use sprites::Sprite;
 use std::{collections::VecDeque, vec};
 
-use crate::ppu::flags::LCDC;
+use crate::ppu::{lcdc::LCDC, sprites::OamPixel};
 
 const RESOLUTION_X: usize = 160;
 const RESOLUTION_Y: usize = 144;
@@ -22,7 +22,7 @@ pub struct Ppu {
     vram: [u8; 0x2000],
     oam: [u8; 0x00A0],
 
-    lcdc: flags::LCDC,
+    lcdc: lcdc::LCDC,
     lcds: u8,
 
     scy: u8,
@@ -42,7 +42,7 @@ pub struct Ppu {
 
     oambuffer: Vec<Sprite>,
     pixel_fifo: VecDeque<u8>,
-    oam_fifo: u8,
+    oam_fifo: Vec<OamPixel>,
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
 
@@ -78,7 +78,7 @@ impl Default for Ppu {
             mode: PpuMode::OamScan,
             oambuffer: vec![],
             pixel_fifo: VecDeque::new(),
-            oam_fifo: 0,
+            oam_fifo: vec![],
             fetcher: FetcherState::new(),
             wly: 0,
             interrupt_flags: 0,
@@ -197,6 +197,7 @@ impl Ppu {
                 }
 
                 self.tick_fetcher();
+                self.populate_oam_fifo();
 
                 if self.lx == 160 {
                     self.set_ppu_mode(PpuMode::HBlank);
@@ -364,20 +365,79 @@ impl Ppu {
     }
 
     fn populate_oam_fifo(&mut self) {
+        if !self.lcdc.is_sprites_enabled() {
+            self.cancel_object_fetching();
+            return;
+        }
+
+        let has_sprite_at_x = self.oambuffer.iter().any(|sprite| sprite.x <= self.lx + 8);
+        if !has_sprite_at_x {
+            self.cancel_object_fetching();
+            return;
+        }
+
         self.oambuffer.sort_by_key(|s| s.x);
         let popped_sprites: Vec<Sprite> = self
             .oambuffer
             .extract_if(.., |sprite| sprite.x <= self.lx + 8)
             .collect();
 
+        for _ in 0..8 {
+            self.oam_fifo.push(OamPixel {
+                color_idx: 0,
+                palette: 0,
+                priority: 0,
+            });
+        }
+
         for sprite in popped_sprites {
-            let vram_address: u16 = if self.lcdc.sprite_height() == 8 {
-                0x8000 + ((sprite.tile_idx as u16) * 16)
+            let sprite_height = self.lcdc.sprite_height();
+
+            let line_on_sprite = (self.ly + 16).saturating_sub(sprite.y);
+
+            let row = if sprite.y_flip() {
+                (sprite_height - 1) - line_on_sprite
             } else {
-                0x8000 + ((sprite.tile_idx & 0xFE) as u16 * 16)
+                line_on_sprite
             };
+
+            let tile_idx = if sprite_height == 16 {
+                if row < 8 {
+                    sprite.tile_idx & 0xFE
+                } else {
+                    (sprite.tile_idx & 0xFE) | 0x01
+                }
+            } else {
+                sprite.tile_idx
+            };
+
+            let line_in_tile = row % 8;
+            let vram_addr = 0x8000 + (tile_idx as u16 * 16) + (line_in_tile as u16 * 2);
+
+            let lo = self.vram[(vram_addr - 0x8000) as usize];
+            let hi = self.vram[(vram_addr + 1 - 0x8000) as usize];
+
+            for x in 0..8 {
+                let bit = if sprite.x_flip() { x } else { 7 - x };
+
+                let low_bit = (lo >> bit) & 1;
+                let high_bit = (hi >> bit) & 1;
+                let color_idx = (high_bit << 1) | low_bit;
+
+                if color_idx != 0 {
+                    continue;
+                }
+
+                let fifo_pixel = &mut self.oam_fifo[x];
+
+                if fifo_pixel.color_idx == 0 {
+                    *fifo_pixel = OamPixel { color_idx, palette: sprite.palette(), priority: sprite.priority() }
+                }
+            }
         }
     }
+
+    fn cancel_object_fetching(&self) {}
 
     fn in_window(&self) -> bool {
         (self.lx.wrapping_add(7)) >= self.wx

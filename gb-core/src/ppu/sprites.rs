@@ -15,4 +15,27 @@ impl Sprite {
             flags,
         }
     }
+
+    pub fn x_flip(&self) -> bool {
+        self.flags & 0x20 != 0
+    }
+
+    pub fn y_flip(&self) -> bool {
+        self.flags & 0x40 != 0
+    }
+
+    pub fn priority(&self) -> u8 {
+        self.flags & 0x80
+    }
+
+    pub fn palette(&self) -> u8 {
+        self.flags & 0x08
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct OamPixel {
+    pub color_idx: u8,
+    pub palette: u8,
+    pub priority: u8,
 }
