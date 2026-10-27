@@ -87,7 +87,13 @@ impl Bus for MemoryMap {
             0xE000..=0xFDFF => self.write(addr - 0x2000, value),
             0xFEA0..=0xFEFF => {}
             0xFF04..=0xFF07 => self.timer.set_timer(addr, value),
-            0xFF46 => {}
+            0xFF46 => {
+                let base = (value as u16) << 8;
+                for i in 0..0xA0u16 {
+                    let b = self.read(base + i);
+                    self.ppu.oam_write_raw(i as usize, b);
+                }
+            }
             0x8000..=0x9FFF | 0xFE00..=0xFE9F | 0xFF40..=0xFF4B => self.ppu.write(addr, value),
             // 0xFF02 => {
             //     if (value & 0x80) != 0 {

@@ -10,6 +10,11 @@ use crate::ppu::{lcdc::LCDC, sprites::OamPixel};
 
 const RESOLUTION_X: usize = 160;
 const RESOLUTION_Y: usize = 144;
+const TRANSPARENT: OamPixel = OamPixel {
+    color_idx: 0,
+    palette: 0,
+    priority: 0,
+};
 
 enum PpuMode {
     OamScan,
@@ -42,7 +47,7 @@ pub struct Ppu {
 
     oambuffer: Vec<Sprite>,
     pixel_fifo: VecDeque<u8>,
-    oam_fifo: Vec<OamPixel>,
+    oam_fifo: VecDeque<OamPixel>,
     fetcher: FetcherState,
     wly: u8, // Invisible to the CPU
 
@@ -78,7 +83,7 @@ impl Default for Ppu {
             mode: PpuMode::OamScan,
             oambuffer: vec![],
             pixel_fifo: VecDeque::new(),
-            oam_fifo: vec![],
+            oam_fifo: VecDeque::new(),
             fetcher: FetcherState::new(),
             wly: 0,
             interrupt_flags: 0,
@@ -163,6 +168,12 @@ impl Ppu {
         }
     }
 
+    pub fn oam_write_raw(&mut self, index: usize, value: u8) {
+        if index < 160 {
+            self.oam[index] = value;
+        }
+    }
+
     pub fn tick(&mut self) -> u8 {
         if !self.lcdc.is_ppu_enabled() {
             return 0;
@@ -180,10 +191,11 @@ impl Ppu {
                 }
             }
             PpuMode::Drawing => {
+                self.fetch_sprites(); // before the BG pixel for this lx is popped
+
                 if !self.pixel_fifo.is_empty() {
                     if let Some(v) = self.scx_discard_counter {
                         self.pixel_fifo.pop_front();
-
                         self.scx_discard_counter = if v > 1 { Some(v - 1) } else { None };
                     } else if let Some(pixel) = self.pixel_fifo.pop_front() {
                         if self.should_start_window() {
@@ -191,13 +203,13 @@ impl Ppu {
                             self.pixel_fifo.clear();
                             self.fetcher.restart_window();
                         } else {
-                            self.render_pixel(pixel);
+                            let obj = self.pop_obj_pixel();
+                            self.render_pixel(pixel, obj);
                         }
                     }
                 }
 
                 self.tick_fetcher();
-                self.populate_oam_fifo();
 
                 if self.lx == 160 {
                     self.set_ppu_mode(PpuMode::HBlank);
@@ -275,6 +287,8 @@ impl Ppu {
         self.oambuffer.clear();
         self.pixel_fifo.clear();
         self.fetcher = FetcherState::new();
+        self.oam_fifo.clear();
+        self.oam_fifo.extend(std::iter::repeat(TRANSPARENT).take(8));
     }
 
     fn oam_scan(&mut self) {
@@ -294,8 +308,9 @@ impl Ppu {
 
         let sprite_height = self.lcdc.sprite_height();
 
-        if self.ly + 16 >= sprite.y
-            && self.ly + 16 < sprite.y + sprite_height
+        let y = self.ly as u16 + 16;
+        if y >= sprite.y as u16
+            && y < sprite.y as u16 + sprite_height as u16
             && self.oambuffer.len() < 10
         {
             self.oambuffer.push(sprite);
@@ -364,80 +379,81 @@ impl Ppu {
         }
     }
 
-    fn populate_oam_fifo(&mut self) {
-        if !self.lcdc.is_sprites_enabled() {
-            self.cancel_object_fetching();
+    fn fetch_sprites(&mut self) {
+        if !self.lcdc.is_sprites_enabled() || self.oambuffer.is_empty() {
             return;
         }
-
-        let has_sprite_at_x = self.oambuffer.iter().any(|sprite| sprite.x <= self.lx + 8);
-        if !has_sprite_at_x {
-            self.cancel_object_fetching();
-            return;
-        }
-
+        // stable sort keeps OAM order on ties, so lower X (then lower index) wins
         self.oambuffer.sort_by_key(|s| s.x);
-        let popped_sprites: Vec<Sprite> = self
-            .oambuffer
-            .extract_if(.., |sprite| sprite.x <= self.lx + 8)
-            .collect();
 
-        for _ in 0..8 {
-            self.oam_fifo.push(OamPixel {
-                color_idx: 0,
-                palette: 0,
-                priority: 0,
-            });
-        }
+        let lx = self.lx;
+        let due: Vec<Sprite> = self.oambuffer.extract_if(.., |s| s.x <= lx + 8).collect();
 
-        for sprite in popped_sprites {
-            let sprite_height = self.lcdc.sprite_height();
+        let height = self.lcdc.sprite_height();
 
-            let line_on_sprite = (self.ly + 16).saturating_sub(sprite.y);
+        for sprite in due {
+            // how many left-hand pixels are off screen (only when x < 8, at lx == 0)
+            let skip = 8u8.saturating_sub(sprite.x) as usize;
 
+            let line = (self.ly + 16).wrapping_sub(sprite.y);
             let row = if sprite.y_flip() {
-                (sprite_height - 1) - line_on_sprite
+                height - 1 - line
             } else {
-                line_on_sprite
+                line
             };
 
-            let tile_idx = if sprite_height == 16 {
-                if row < 8 {
-                    sprite.tile_idx & 0xFE
-                } else {
-                    (sprite.tile_idx & 0xFE) | 0x01
-                }
+            let tile = if height == 16 {
+                (sprite.tile_idx & 0xFE) | (row >= 8) as u8
             } else {
                 sprite.tile_idx
             };
 
-            let line_in_tile = row % 8;
-            let vram_addr = 0x8000 + (tile_idx as u16 * 16) + (line_in_tile as u16 * 2);
+            let addr = tile as usize * 16 + (row % 8) as usize * 2;
+            let lo = self.vram[addr];
+            let hi = self.vram[addr + 1];
 
-            let lo = self.vram[(vram_addr - 0x8000) as usize];
-            let hi = self.vram[(vram_addr + 1 - 0x8000) as usize];
-
-            for x in 0..8 {
-                let bit = if sprite.x_flip() { x } else { 7 - x };
-
-                let low_bit = (lo >> bit) & 1;
-                let high_bit = (hi >> bit) & 1;
-                let color_idx = (high_bit << 1) | low_bit;
-
-                if color_idx != 0 {
-                    continue;
+            for i in skip..8 {
+                let bit = if sprite.x_flip() { i } else { 7 - i };
+                let color_idx = (((hi >> bit) & 1) << 1) | ((lo >> bit) & 1);
+                if color_idx == 0 {
+                    continue; // transparent
                 }
-
-                let fifo_pixel = &mut self.oam_fifo[x];
-
-                if fifo_pixel.color_idx == 0 {
-                    *fifo_pixel = OamPixel { color_idx, palette: sprite.palette(), priority: sprite.priority() }
+                let slot = &mut self.oam_fifo[i - skip];
+                if slot.color_idx == 0 {
+                    *slot = OamPixel {
+                        color_idx,
+                        palette: sprite.palette(),
+                        priority: sprite.priority(),
+                    };
                 }
             }
         }
     }
 
-    fn cancel_object_fetching(&self) {}
+    fn pop_obj_pixel(&mut self) -> OamPixel {
+        self.oam_fifo.push_back(TRANSPARENT);
+        self.oam_fifo.pop_front().unwrap_or(TRANSPARENT)
+    }
+
+    fn render_pixel(&mut self, bg: u8, obj: OamPixel) {
+        let bg = if self.lcdc.is_bg_enabled() { bg } else { 0 }; // LCDC bit 0
+
+        let shade = if obj.color_idx != 0 && !(obj.priority != 0 && bg != 0) {
+            let pal = if obj.palette == 0 {
+                self.obp0
+            } else {
+                self.obp1
+            };
+            (pal >> (obj.color_idx * 2)) & 0b11
+        } else {
+            (self.bgp >> (bg * 2)) & 0b11
+        };
+
+        let i = self.ly as usize * 160 + self.lx as usize;
+        self.framebuffer[i] = shade;
+        self.drawn[i] = true;
+        self.lx += 1;
+    }
 
     fn in_window(&self) -> bool {
         (self.lx.wrapping_add(7)) >= self.wx
@@ -449,13 +465,6 @@ impl Ppu {
 
     fn should_start_window(&self) -> bool {
         !self.window_active && self.is_window_tile()
-    }
-
-    fn render_pixel(&mut self, color_index: u8) {
-        let (x, y) = (self.lx as usize, self.ly as usize);
-        self.framebuffer[y * 160 + x] = (self.bgp >> (color_index * 2)) & 0b11;
-        self.drawn[y * 160 + x] = true;
-        self.lx += 1;
     }
 
     pub fn framebuffer(&self) -> &[u8] {
