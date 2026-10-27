@@ -7,7 +7,7 @@ use gb_core::cpu::Cpu;
 use sdl3::{
     VideoSubsystem,
     event::Event,
-    keyboard::Keycode,
+    keyboard::{Keycode, Mod},
     pixels::{Color, PixelFormat},
     render::{Canvas, Texture},
     sys::{render::SDL_SetTextureScaleMode, surface::SDL_SCALEMODE_NEAREST},
@@ -62,6 +62,14 @@ fn main() {
                     ..
                 } => {
                     break 'gameloop;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::K),
+                    keymod,
+                    ..
+                } if keymod.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD) => {
+                    println!("Ctrl + K shortcut triggered!");
+                    cpu.dump_vram();
                 }
                 _ => {}
             }

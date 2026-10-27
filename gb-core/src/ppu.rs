@@ -4,7 +4,7 @@ mod sprites;
 
 use fetcher::{FetcherState, FetcherStep};
 use sprites::Sprite;
-use std::{collections::VecDeque, vec};
+use std::{collections::VecDeque, fs::File, io::Write, vec};
 
 use crate::ppu::{lcdc::LCDC, sprites::OamPixel};
 
@@ -166,6 +166,40 @@ impl Ppu {
             0xFF4B => self.wx = value,
             _ => {}
         }
+    }
+
+    pub fn dump_vram(&self) -> std::io::Result<()> {
+        let mut file = File::create("vramdump.log")?;
+        let base_addr = 0x8000;
+
+        for (i, chunk) in self.vram.chunks(16).enumerate() {
+            write!(file, "{:04x}: ", base_addr + i * 16)?;
+
+            for byte in chunk {
+                write!(file, "{:02x} ", byte)?;
+            }
+
+            writeln!(file)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn dump_oam(&self) -> std::io::Result<()> {
+        let mut file = File::create("oamdump.log")?;
+        let base_addr = 0xFE00;
+
+        for (i, chunk) in self.oam.chunks(16).enumerate() {
+            write!(file, "{:04x}: ", base_addr + i * 16)?;
+
+            for byte in chunk {
+                write!(file, "{:02x} ", byte)?;
+            }
+
+            writeln!(file)?;
+        }
+
+        Ok(())
     }
 
     pub fn oam_write_raw(&mut self, index: usize, value: u8) {

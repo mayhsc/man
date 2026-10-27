@@ -154,4 +154,9 @@ impl MemoryMap {
     pub fn drawn(&self) -> &[bool] {
         &self.ppu.drawn
     }
+
+    pub fn dump_vram(&self) {
+        self.ppu.dump_vram().unwrap();
+        self.ppu.dump_oam().unwrap();
+    }
 }

@@ -677,4 +677,8 @@ impl Cpu<MemoryMap> {
     pub fn drawn(&self) -> &[bool] {
         &self.bus.drawn()
     }
+
+    pub fn dump_vram(&self) {
+        self.bus.dump_vram();
+    }
 }
