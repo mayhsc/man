@@ -170,7 +170,10 @@ impl MemoryMap {
     }
 
     pub fn press(&mut self, btn: Button) {
-        self.joypad.press(btn);
+        if self.joypad.press(btn) {
+            let _if = self.read(IF_ADDR) | 1 << 4;
+            self.write(IF_ADDR, _if);
+        }
     }
 
     pub fn release(&mut self, btn: Button) {
