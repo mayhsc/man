@@ -40,6 +40,8 @@ fn main() {
     bus.load(&buffer);
     let mut cpu = Cpu::new(bus);
 
+    let mut paused = false;
+
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator
         .create_texture_streaming(PixelFormat::RGBA32, RESOLUTION_X, RESOLUTION_Y)
@@ -68,8 +70,13 @@ fn main() {
                     keymod,
                     ..
                 } if keymod.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD) => {
-                    println!("Ctrl + K shortcut triggered!");
                     cpu.dump_vram();
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::P),
+                    ..
+                } => {
+                    paused = !paused;
                 }
                 _ => {}
             }
@@ -77,8 +84,15 @@ fn main() {
 
         let mut cycles = 0;
 
+        if paused {
+            std::thread::sleep(std::time::Duration::from_millis(16));
+            continue;
+        }
         while cycles < FRAME_M_CYCLES {
             cycles += cpu.step();
+            if paused {
+                break;
+            }
         }
         to_rgba(cpu.frame_buffer(), &mut rgba, cpu.drawn());
 
