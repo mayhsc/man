@@ -9,6 +9,7 @@ use crate::{
         flags::Condition,
         registers::{Operand8, Reg8, Reg16, Registers},
     },
+    joypad::Button,
 };
 
 use std::fs::File;
@@ -680,5 +681,13 @@ impl Cpu<MemoryMap> {
 
     pub fn dump_vram(&self) {
         self.bus.dump_vram();
+    }
+
+    pub fn press(&mut self, btn: Button) {
+        self.bus.press(btn);
+    }
+
+    pub fn release(&mut self, btn: Button) {
+        self.bus.release(btn);
     }
 }

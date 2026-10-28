@@ -1,4 +1,9 @@
-use crate::{IF_ADDR, joypad::Joypad, ppu::Ppu, timer::Timer};
+use crate::{
+    IF_ADDR,
+    joypad::{Button, Joypad},
+    ppu::Ppu,
+    timer::Timer,
+};
 
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
@@ -50,7 +55,7 @@ impl Default for MemoryMap {
             timer: Timer::new(),
             ppu: Ppu::new(),
 
-            joypad: Joypad::new()
+            joypad: Joypad::new(),
         }
     }
 }
@@ -162,5 +167,13 @@ impl MemoryMap {
     pub fn dump_vram(&self) {
         self.ppu.dump_vram().unwrap();
         self.ppu.dump_oam().unwrap();
+    }
+
+    pub fn press(&mut self, btn: Button) {
+        self.joypad.press(btn);
+    }
+
+    pub fn release(&mut self, btn: Button) {
+        self.joypad.release(btn);
     }
 }

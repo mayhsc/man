@@ -4,6 +4,7 @@ use std::io::Read;
 
 use gb_core::bus::MemoryMap;
 use gb_core::cpu::Cpu;
+use gb_core::joypad::Button;
 use sdl3::{
     VideoSubsystem,
     event::Event,
@@ -78,6 +79,15 @@ fn main() {
                 } => {
                     paused = !paused;
                 }
+                Event::KeyDown {
+                    keycode,
+                    repeat: false,
+                    ..
+                } => handle_key_event(keycode, true, &mut cpu),
+
+                Event::KeyUp { keycode, .. } => {
+                    handle_key_event(keycode, false, &mut cpu);
+                }
                 _ => {}
             }
         }
@@ -149,5 +159,31 @@ fn to_rgba(shades: &[u8], out: &mut [u8], drawn: &[bool]) {
         };
 
         out[i * 4..i * 4 + 4].copy_from_slice(rgba);
+    }
+}
+
+fn handle_key_event(keycode: Option<Keycode>, pressed: bool, joypad: &mut Cpu<MemoryMap>) {
+    if let Some(key) = keycode {
+        if let Some(button) = key_to_button(key) {
+            if pressed {
+                joypad.press(button);
+            } else {
+                joypad.release(button);
+            }
+        }
+    }
+}
+
+fn key_to_button(key: Keycode) -> Option<Button> {
+    match key {
+        Keycode::Right => Some(Button::Right),
+        Keycode::Left => Some(Button::Left),
+        Keycode::Up => Some(Button::Up),
+        Keycode::Down => Some(Button::Down),
+        Keycode::Z => Some(Button::A),
+        Keycode::X => Some(Button::B),
+        Keycode::Return => Some(Button::Start),
+        Keycode::Backspace => Some(Button::Select),
+        _ => None,
     }
 }
