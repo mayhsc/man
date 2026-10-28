@@ -1,4 +1,4 @@
-use crate::{IF_ADDR, ppu::Ppu, timer::Timer};
+use crate::{IF_ADDR, joypad::Joypad, ppu::Ppu, timer::Timer};
 
 pub trait Bus {
     fn read(&self, addr: u16) -> u8;
@@ -28,6 +28,8 @@ pub struct MemoryMap {
 
     timer: Timer,
     ppu: Ppu,
+
+    joypad: Joypad,
 }
 
 impl Default for MemoryMap {
@@ -47,6 +49,8 @@ impl Default for MemoryMap {
 
             timer: Timer::new(),
             ppu: Ppu::new(),
+
+            joypad: Joypad::new()
         }
     }
 }
@@ -66,8 +70,7 @@ impl Bus for MemoryMap {
             0xFEA0..=0xFEFF => 0xFF,
             0xFF04..=0xFF07 => self.timer.get_timer(addr),
             0x8000..=0x9FFF | 0xFE00..=0xFE9F | 0xFF40..=0xFF4B => self.ppu.read(addr),
-            // // Temporary
-            0xFF00 => 0xCF,
+            0xFF00 => self.joypad.read(),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize],
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize],
             0xFFFF => self.ie,
@@ -107,6 +110,7 @@ impl Bus for MemoryMap {
             //         self.io_regs[0x02] = value;
             //     }
             // }
+            0xFF00 => self.joypad.write(value),
             0xFF00..=0xFF7F => self.io_regs[(addr - 0xFF00) as usize] = value,
             0xFF80..=0xFFFE => self.hram[(addr - 0xFF80) as usize] = value,
             0xFFFF => self.ie = value,
