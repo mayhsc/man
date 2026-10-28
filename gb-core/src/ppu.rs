@@ -334,8 +334,8 @@ impl Ppu {
         }
 
         let sprite = Sprite::new(
-            self.oam[offset],
             self.oam[offset + 1],
+            self.oam[offset],
             self.oam[offset + 2],
             self.oam[offset + 3],
         );
