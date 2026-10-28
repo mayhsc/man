@@ -4,7 +4,7 @@ pub mod registers;
 
 use crate::{
     IE_ADDR, IF_ADDR,
-    bus::Bus,
+    bus::{Bus, MemoryMap},
     cpu::{
         flags::Condition,
         registers::{Operand8, Reg8, Reg16, Registers},
@@ -53,11 +53,14 @@ impl<B: Bus> Cpu<B> {
         self.m_cycles = 0;
         if self.halted {
             self.tick();
-
             if self.pending_interrupts() != 0 {
                 self.halted = false;
+                if self.ime {
+                    self.regs.pc = self.regs.pc.wrapping_sub(1);
+                    self.handle_interrupt();
+                    self.opcode = self.fetch_byte();
+                }
             }
-            self.handle_interrupt();
             return self.m_cycles;
         }
 
@@ -111,14 +114,14 @@ impl<B: Bus> Cpu<B> {
             return;
         }
 
+        self.tick();
+        self.tick();
+
         let _if = self.bus.peek(IF_ADDR);
         let pending_interrupts = self.pending_interrupts();
         if pending_interrupts == 0 {
             return;
         }
-
-        self.tick();
-        self.tick();
 
         self.ime = false;
         self.ei_delay = 0;
@@ -663,5 +666,19 @@ impl<B: Bus> Cpu<B> {
     #[cfg(test)]
     pub fn set_opcode(&mut self, op: u8) {
         self.opcode = op
+    }
+}
+
+impl Cpu<MemoryMap> {
+    pub fn frame_buffer(&self) -> &[u8] {
+        &self.bus.framebuffer()
+    }
+
+    pub fn drawn(&self) -> &[bool] {
+        &self.bus.drawn()
+    }
+
+    pub fn dump_vram(&self) {
+        self.bus.dump_vram();
     }
 }

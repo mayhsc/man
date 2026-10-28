@@ -25,7 +25,7 @@ rom_10 => "cpu_instr/10-bit ops",
 rom_11 => "cpu_instr/11-op a,(hl)",
 rom_12 => "timing/halt_bug",
 rom_13 => "timing/instr_timing",
-rom_14 => "timing/interrupt_time",
-rom_15 => "timing/mem_timing",
-rom_16 => "timing/mem_timing_2"
+// rom_14 => "timing/interrupt_time",
+// rom_15 => "timing/mem_timing",
+// rom_16 => "timing/mem_timing_2"
 }

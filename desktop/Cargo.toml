@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 gb-core = {path = "../gb-core"}
+sdl3 = "0.20.0"

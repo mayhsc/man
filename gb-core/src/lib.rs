@@ -1,6 +1,7 @@
 pub mod cpu;
 pub mod bus;
 pub mod timer;
+pub mod ppu;
 
 #[cfg(test)]
 mod tests;
